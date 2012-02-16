@@ -17,7 +17,6 @@ import java.util.List;
 /**
  * Show videos for the tests.
  *
- * @author Kohsuke Kawaguchi
  */
 public class TestingBotReport extends TestAction {
     public final CaseResult parent;
@@ -44,14 +43,14 @@ public class TestingBotReport extends TestAction {
     }
 
     public String getIconFileName() {
-        return "/plugin/sauce-ondemand/images/24x24/video.gif";
+        return "/plugin/testingbot/images/24x24/logo.jpg";
     }
 
     public String getDisplayName() {
-        return "TestingBot report";
+        return "TestingBot Report";
     }
 
     public String getUrlName() {
-        return "testingbot-report";
+        return "testingbot";
     }
 }
