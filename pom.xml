@@ -6,6 +6,14 @@
     <version>1.451</version><!-- which version of Jenkins is this plugin built against? -->
   </parent>
 
+  <developers>
+    <developer>
+      <id>testingbot</id>
+      <name>Jochen Delabie</name>
+      <email>info@testingbot.com</email>
+    </developer>
+  </developers>
+
   <groupId>testingbot</groupId>
   <artifactId>testingbot</artifactId>
   <version>1.0-SNAPSHOT</version>
