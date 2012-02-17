@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package testingbot;
 
 import java.io.BufferedReader;
@@ -17,7 +13,7 @@ import java.util.logging.Logger;
 
 /**
  *
- * @author jochen
+ * @author testingbot.com
  */
 public class TestingBotAPI {
     
@@ -36,7 +32,7 @@ public class TestingBotAPI {
            String[] data = strLine.split(":");
            apiKey = data[0];
            apiSecret = data[1];
-         } catch (Exception e) {}
+         } catch (Exception e) { return; }
         
         if ((apiKey == null) || (apiSecret == null)) {
             return;

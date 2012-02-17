@@ -1,12 +1,8 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package testingbot;
 
 /**
  *
- * @author jochen
+ * @author testingbot.com
  */
 import hudson.model.AbstractBuild;
 import hudson.tasks.junit.CaseResult;

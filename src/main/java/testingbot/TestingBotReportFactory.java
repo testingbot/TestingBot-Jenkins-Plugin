@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package testingbot;
 
 import hudson.tasks.junit.CaseResult;
@@ -17,7 +13,7 @@ import java.util.regex.Pattern;
 
 /**
  *
- * @author jochen
+ * @author testingbot.com
  */
 public class TestingBotReportFactory extends Data {
     

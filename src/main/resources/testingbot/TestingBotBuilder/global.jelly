@@ -17,10 +17,10 @@
       is mapped to our webapp/ directory, so this is a convenient way to serve
       static resources.
     -->
-     <f:entry title="${%API Key}" field="apiKey" description="Retrieve your API Key from the TestingBot member area">
+     <f:entry title="${%API Key}" field="apiKey">
                 <f:textbox value="${descriptor.apiKey}"/>
      </f:entry>
-      <f:entry title="${%API Secret}" field="apiSecret" description="Retrieve your API Secret from the TestingBot member area">
+      <f:entry title="${%API Secret}" field="apiSecret">
                 <f:textbox value="${descriptor.apiSecret}"/>
      </f:entry>    
   </f:section>

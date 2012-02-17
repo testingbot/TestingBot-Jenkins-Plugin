@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package testingbot;
 
 import hudson.Extension;
@@ -19,32 +15,36 @@ import org.kohsuke.stapler.DataBoundConstructor;
 
 /**
  *
- * @author jochen
+ * @author testingbot.com
  */
 public final class TestingBotBuildWrapper extends BuildWrapper {
     
     private boolean enableSSH;
-    private String ssh;
+    private String sshCommand;
     
     @DataBoundConstructor
-    public TestingBotBuildWrapper(boolean enableSSH, String ssh) {
+    public TestingBotBuildWrapper(boolean enableSSH, String sshCommand) {
         this.enableSSH = enableSSH;
-        this.ssh = ssh;
+        this.sshCommand = sshCommand;
     }
        
     @Override
     public Environment setUp(AbstractBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
-        final PrintStream logger = listener.getLogger();
-        logger.println("Setting up SSH stuff");
-        listener.getLogger().println("Starting TestingBot SSH Tunnel");
-        
-        return new Environment() {
-           
-            @Override
-            public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException, InterruptedException {
-                return true;
-            }
-        };
+        if (this.enableSSH == true) {
+            listener.getLogger().println("Starting TestingBot SSH Tunnel");
+            final Process p = Runtime.getRuntime().exec(this.sshCommand);
+            return new Environment() {
+
+                @Override
+                public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException, InterruptedException {
+                    listener.getLogger().println("Closing SSH Tunnel");
+                    p.destroy();
+                    return true;
+                }
+            };
+        } else {
+            return new Environment() {};
+        }
     }
 
     /**
@@ -62,17 +62,17 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
     }
 
     /**
-     * @return the ssh
+     * @return the sshCommand
      */
-    public String getSsh() {
-        return ssh;
+    public String getSshCommand() {
+        return sshCommand;
     }
 
     /**
-     * @param ssh the ssh to set
+     * @param ssh the sshCommand to set
      */
-    public void setSsh(String ssh) {
-        this.ssh = ssh;
+    public void setSshCommand(String sshComand) {
+        this.sshCommand = sshComand;
     }
     
     @Extension

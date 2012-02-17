@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package testingbot;
 
 import hudson.Extension;
@@ -25,7 +21,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 
 /**
  *
- * @author jochen
+ * @author testingbot.com
  */
 public class TestReporter extends TestDataPublisher {
     
@@ -46,7 +42,7 @@ public class TestReporter extends TestDataPublisher {
                     TestingBotAPI api = new TestingBotAPI();
                     Map<String, String> data = new HashMap<String, String>();
                     data.put("success", cr.isPassed() ? "1" : "0");
-                    data.put("status_message", cr.getStderr());
+                    data.put("status_message", cr.getErrorDetails());
                     data.put("name", cr.getFullName());
                     api.updateTest(sessionIDs.get(0), data);
             
