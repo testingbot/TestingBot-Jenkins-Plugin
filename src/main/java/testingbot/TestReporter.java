@@ -18,7 +18,9 @@ import hudson.tasks.junit.TestResult;
 import hudson.tasks.junit.TestResultAction.Data;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 /**
@@ -35,11 +37,19 @@ public class TestReporter extends TestDataPublisher {
     public Data getTestData(AbstractBuild<?, ?> ab, Launcher lnchr, BuildListener bl, TestResult tr) throws IOException, InterruptedException {
         bl.getLogger().println("Scanning for test data...");
         boolean foundSession = false;
+        List<String> sessionIDs = null;
         
         for (SuiteResult sr : tr.getSuites()) {
             for (CaseResult cr : sr.getCases()) {
-                List<String> sessionIDs = TestingBotReportFactory.findSessionIDs(cr);
+                sessionIDs = TestingBotReportFactory.findSessionIDs(cr);
                 if (!sessionIDs.isEmpty()) {
+                    TestingBotAPI api = new TestingBotAPI();
+                    Map<String, String> data = new HashMap<String, String>();
+                    data.put("success", cr.isPassed() ? "1" : "0");
+                    data.put("status_message", cr.getStderr());
+                    data.put("name", cr.getFullName());
+                    api.updateTest(sessionIDs.get(0), data);
+            
                     foundSession = true;
                 }
             }
