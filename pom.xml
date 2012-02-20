@@ -5,7 +5,12 @@
     <artifactId>plugin</artifactId>
     <version>1.451</version><!-- which version of Jenkins is this plugin built against? -->
   </parent>
-
+	
+  <scm>
+      <connection>scm:git:git://github.com/jenkinsci/testingbot-plugin.git</connection>
+      <developerConnection>scm:git:git@github.com:jenkinsci/testingbot-plugin.git</developerConnection>
+  </scm>
+	<url>https://wiki.jenkins-ci.org/display/JENKINS/TestingBot+Selenium+Plugin</url>
   <developers>
     <developer>
       <id>testingbot</id>
