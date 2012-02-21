@@ -39,10 +39,14 @@ public class TestReporter extends TestDataPublisher {
             for (CaseResult cr : sr.getCases()) {
                 sessionIDs = TestingBotReportFactory.findSessionIDs(cr);
                 if (!sessionIDs.isEmpty()) {
+                    String errorDetails = cr.getErrorDetails();
+                    if (errorDetails == null) {
+                        errorDetails = "";
+                    }
                     TestingBotAPI api = new TestingBotAPI();
                     Map<String, String> data = new HashMap<String, String>();
                     data.put("success", cr.isPassed() ? "1" : "0");
-                    data.put("status_message", cr.getErrorDetails());
+                    data.put("status_message", errorDetails);
                     data.put("name", cr.getFullName());
                     api.updateTest(sessionIDs.get(0), data);
             
