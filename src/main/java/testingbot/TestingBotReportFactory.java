@@ -26,17 +26,36 @@ public class TestingBotReportFactory extends Data {
     public static List<String> findSessionIDs(CaseResult testResult) {
         List<String> sessions = new ArrayList<String>();
         Pattern p = Pattern.compile("TestingBotSessionID=([0-9a-zA-Z]+)");
-        Matcher matchOut = p.matcher(testResult.getStdout());
-        Matcher matchError = p.matcher(testResult.getStderr());
-        
-        while (matchOut.find()) {
-            String sessionId = matchOut.group(1);
-            sessions.add(sessionId);
+        if (testResult.getStdout() != null) {
+            Matcher matchOut = p.matcher(testResult.getStdout());
+            while (matchOut.find()) {
+                String sessionId = matchOut.group(1);
+                sessions.add(sessionId);
+            }
         }
         
-        while (matchError.find()) {
-            String sessionId = matchError.group(1);
-            sessions.add(sessionId);
+        if (testResult.getStderr() != null) {
+            Matcher matchError = p.matcher(testResult.getStderr());
+            while (matchError.find()) {
+                String sessionId = matchError.group(1);
+                sessions.add(sessionId);
+            }
+        }
+        
+        if (testResult.getClassName() != null) {
+            Matcher matchName = p.matcher(testResult.getClassName());
+            while (matchName.find()) {
+                String sessionId = matchName.group(1);
+                sessions.add(sessionId);
+            }
+        }
+        
+        if (testResult.getFullName() != null) {
+            Matcher matchFullName = p.matcher(testResult.getFullName());
+            while (matchFullName.find()) {
+                String sessionId = matchFullName.group(1);
+                sessions.add(sessionId);
+            }
         }
         
         return sessions;
