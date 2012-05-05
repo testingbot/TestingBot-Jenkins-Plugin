@@ -44,7 +44,7 @@
 	<description>Use this Jenkins plugin to see videos/screenshots of your Selenium tests</description>
   <groupId>testingbot</groupId>
   <artifactId>testingbot</artifactId>
-  <version>1.4-SNAPSHOT</version>
+  <version>1.4</version>
   <packaging>hpi</packaging>
 
   <!-- get every artifact through maven.glassfish.org, which proxies all the artifacts that we need -->
@@ -60,7 +60,20 @@
             <url>http://repo.jenkins-ci.org/public/</url>
         </pluginRepository>
     </pluginRepositories>
-
+		 <build>
+		    <plugins>
+		      <plugin>
+		        <groupId>org.jenkins-ci.tools</groupId>
+		        <artifactId>maven-hpi-plugin</artifactId>
+		        <!-- version specified in grandparent pom -->
+		        <extensions>true</extensions>
+		        <configuration>
+		          <showDeprecation>true</showDeprecation>
+		          <disabledTestInjection>true</disabledTestInjection>
+		        </configuration>
+		      </plugin>
+		    </plugins>
+		</build>
   <dependencies>
     <dependency>
       <groupId>com.testingbot</groupId>
