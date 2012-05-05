@@ -56,7 +56,7 @@ public class TestingBotReport extends TestAction {
     }
 
     public String getIconFileName() {
-        return "/plugin/testingbot/images/24x24/logo.jpg";
+        return (ids.size() > 0) ? "/plugin/testingbot/images/24x24/logo.jpg" : null;
     }
 
     public String getDisplayName() {
@@ -64,6 +64,6 @@ public class TestingBotReport extends TestAction {
     }
 
     public String getUrlName() {
-        return "testingbot";
+        return (ids.size() > 0) ? "testingbot" : null;
     }
 }
