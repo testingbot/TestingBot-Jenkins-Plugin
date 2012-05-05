@@ -18,11 +18,7 @@
       static resources.
     -->
         <f:entry field="enableSSH">
-            <f:checkbox title="${%Enable SSH Tunnel?}" checked="${instance.enableSSH == true}" />
-        </f:entry>
-
-        <f:entry title="${%Tunnel}" field="sshCommand">
-            <f:textbox value="${instance.sshCommand}"/>
+            <f:checkbox title="${%Enable TestingBot Tunnel?}" checked="${instance.enableSSH == true}" />
         </f:entry>
   </f:block>
 </j:jelly>
