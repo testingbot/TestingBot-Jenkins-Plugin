@@ -1,15 +1,14 @@
 Jenkins TestingBot Plugin
 ============================
 
-Video and screenshots of Selenium tests run on the TestingBot.com Selenium grid.
-Support for SSH Tunnel.
+This Jenkins plugin will display test details from TestingBot.com inside Jenkins.
 
 License
 -------
 
 	(The MIT License)
 
-	Copyright (c) 2012 Jochen Delabie
+	Copyright (c) TestingBot
 
 	Permission is hereby granted, free of charge, to any person obtaining
 	a copy of this software and associated documentation files (the
