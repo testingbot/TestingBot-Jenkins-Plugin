@@ -25,7 +25,7 @@ public class TestingBotReportFactory extends Data {
     
     public static List<String> findSessionIDs(CaseResult testResult) {
         List<String> sessions = new ArrayList<String>();
-        Pattern p = Pattern.compile("TestingBotSessionID=([0-9a-zA-Z]+)");
+        Pattern p = Pattern.compile("TestingBotSessionID=(.*)");
         if (testResult.getStdout() != null) {
             Matcher matchOut = p.matcher(testResult.getStdout());
             while (matchOut.find()) {
