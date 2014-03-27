@@ -367,11 +367,19 @@ public class App {
         return clientKey;
     }
 
+    public void setClientKey(String key) {
+        clientKey = key;
+    }
+
     /**
      * @return the clientSecret
      */
     public String getClientSecret() {
         return clientSecret;
+    }
+
+    public void setClientSecret(String secret) {
+        clientSecret = secret;
     }
 
     /**
