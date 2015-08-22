@@ -20,7 +20,7 @@ import ssh.SSHTunnel;
 import ssh.TunnelPoller;
 
 public class App {
-    public static final String VERSION = "1.14";
+    public static final String VERSION = "1.16";
     private Api api;
     private String clientKey;
     private String clientSecret;
@@ -36,6 +36,7 @@ public class App {
     private boolean useBoost = false;
     private boolean noProxy = false;
     private boolean bypassSquid = false;
+    private HttpProxy httpProxy;
     
     public static void main(String... args) throws Exception {
         
@@ -163,8 +164,8 @@ public class App {
            
            System.out.println("----------------------------------------------------------------");
            System.out.println("  TestingBot Tunnel v" + App.VERSION + "                        ");
-           System.out.println("  Questions or suggestions, please visit http://testingbot.com  ");
-           System.out.println("-----------------------------------------------------------------");
+           System.out.println("  Questions or suggestions, please visit https://testingbot.com ");
+           System.out.println("----------------------------------------------------------------");
            
            app.boot();
         }  
@@ -239,7 +240,7 @@ public class App {
                 System.setProperty("https.proxyHost", "127.0.0.1");
                 System.setProperty("http.proxyPort", "9666");
                 System.setProperty("https.proxyPort", "9666");
-                System.getProperties().put("http.nonProxyHosts", "localhost|127.0.0.1|testingbot.com|api.testingbot.com|hub.testingbot.com|europe.testingbot.com|api-eu.testingbot.com");
+                System.getProperties().put("http.nonProxyHosts", "localhost|127.0.0.1|testingbot.com|api.testingbot.com|hub.testingbot.com");
             }
         }
         
@@ -316,8 +317,8 @@ public class App {
        }
       
        if (! this.noProxy) {
-           HttpProxy httpProxy = new HttpProxy(this);
-           if (httpProxy.testProxy() == false) {
+           this.httpProxy = new HttpProxy(this);
+           if (this.httpProxy.testProxy() == false) {
                Logger.getLogger(App.class.getName()).log(Level.SEVERE, "!! Tunnel might not work properly, test failed");
             }
        }
@@ -347,9 +348,21 @@ public class App {
             Runtime.getRuntime().addShutdownHook(cleanupThread);
        }
     }
+
+    public HttpProxy getHttpProxy() {
+      return httpProxy;
+    }
     
     public int getTunnelID() {
         return tunnelID;
+    }
+
+    public void setClientKey(String key) {
+      clientKey = key;
+    }
+
+    public void setClientSecret(String secret) {
+      clientSecret = secret;
     }
     
     public Api getApi() {
@@ -367,19 +380,11 @@ public class App {
         return clientKey;
     }
 
-    public void setClientKey(String key) {
-        clientKey = key;
-    }
-
     /**
      * @return the clientSecret
      */
     public String getClientSecret() {
         return clientSecret;
-    }
-
-    public void setClientSecret(String secret) {
-        clientSecret = secret;
     }
 
     /**
