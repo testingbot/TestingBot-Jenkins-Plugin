@@ -10,6 +10,7 @@ import hudson.model.listeners.RunListener;
 import hudson.tasks.junit.CaseResult;
 import hudson.tasks.junit.SuiteResult;
 import hudson.tasks.junit.TestResult;
+import hudson.tasks.test.AbstractTestResultAction;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -39,7 +40,7 @@ public class TestingBotBuildSummary extends InvisibleAction {
 
         @Override
         public void onCompleted(AbstractBuild<?, ?> r, TaskListener listener) {
-            TestResult testResult = (TestResult) r.getTestResultAction().getResult();
+            TestResult testResult = (TestResult) r.getAction(AbstractTestResultAction.class).getResult();
             List<TestingBotBuildObject> ids = new ArrayList<TestingBotBuildObject>();
             for (SuiteResult sr : testResult.getSuites()) {
                 for (CaseResult cr : sr.getCases()) {
