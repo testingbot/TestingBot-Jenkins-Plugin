@@ -87,7 +87,7 @@ public class TunnelProxyServlet extends ProxyServlet {
                     throw new ServletException("Bad request on TunnelProxyServlet");
                 }
                 
-                HttpURI url = proxyHttpURI(request,uri);
+                HttpURI url = proxyHttpURI(request.getScheme(), request.getServerName(), request.getServerPort(), uri);
 
                 if (debug != 0)
                     _log.debug(debug + " proxy " + uri + "-->" + url);
@@ -142,28 +142,6 @@ public class TunnelProxyServlet extends ProxyServlet {
                         long endTime = System.currentTimeMillis();
                         Logger.getLogger(TunnelProxyServlet.class.getName()).log(Level.INFO, "<< [{0}] {1} ({2}) - {3}", new Object[]{request.getMethod(), request.getRequestURL().toString(), response.toString().substring(9, 12), (endTime-this.startTime) + " ms"});
                         continuation.complete();
-                    }
-        
-                    @Override
-                    protected void onResponseHeader(Buffer name, Buffer value) throws IOException
-                    {
-                        String nameString = name.toString();
-                        String s = nameString.toLowerCase(Locale.ENGLISH);
-                        if (!_DontProxyHeaders.contains(s) || (HttpHeaders.CONNECTION_BUFFER.equals(name) && HttpHeaderValues.CLOSE_BUFFER.equals(value)))
-                        {
-                            if (debug != 0)
-                                _log.debug(debug + " " + name + ": " + value);
-
-                            String filteredHeaderValue = filterResponseHeaderValue(nameString,value.toString(),request);
-                            if (filteredHeaderValue != null && filteredHeaderValue.trim().length() > 0)
-                            {
-                                if (debug != 0)
-                                    _log.debug(debug + " " + name + ": (filtered): " + filteredHeaderValue);
-                                response.addHeader(nameString,filteredHeaderValue);
-                            }
-                        }
-                        else if (debug != 0)
-                            _log.debug(debug + " " + name + "! " + value);
                     }
 
                     @Override

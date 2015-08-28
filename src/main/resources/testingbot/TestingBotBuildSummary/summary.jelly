@@ -1,0 +1,30 @@
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+    <t:summary icon="/plugin/testingbot/images/48x48/logo.png">
+    	<strong>TestingBot results</strong>
+    	<br />
+        <table>
+            <thead>
+                <th>TestName</th>
+                <th>SessionId</th>
+                <th>Passed?</th>
+            </thead>
+            <tbody>
+     	 <j:forEach var="cs" items="${it.sessionIds}">
+     	 <l:ajax>
+                <tr>
+                	<td>
+                    	<a href="testReport/(root)/${cs.className}/${cs.testName}/testingbot/">${cs.testName}</a>
+                	</td>
+                	<td>
+                		${cs.sessionId}
+                	</td>
+                	<td>
+                		${cs.isPassed}
+                	</td>
+                </tr>
+         </l:ajax>
+         </j:forEach>
+         </tbody>
+         </table>
+    </t:summary>
+</j:jelly>

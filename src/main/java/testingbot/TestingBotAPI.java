@@ -10,6 +10,24 @@ import java.net.*;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.net.ssl.HttpsURLConnection;
+import net.iharder.Base64;
+import java.util.ArrayList;
+import java.util.List;
+
+import java.io.IOException;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.client.methods.HttpDelete;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+
+import net.sf.json.*;
+import org.apache.http.client.methods.HttpPut;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
 
 /**
  *
@@ -37,39 +55,32 @@ public class TestingBotAPI {
         if ((apiKey == null) || (apiSecret == null)) {
             return;
         }
-        
-        details.put("session_id", sessionID);
-        details.put("client_key", apiKey);
-        details.put("client_secret", apiSecret);
 
-        StringBuilder sb = new StringBuilder();
-        for (Map.Entry<String,String> entry : details.entrySet())
-        {
-            if (sb.length() > 0) {
-                sb.append("&");
-            }
-            sb.append(String.format("%s=%s",
-                urlEncodeUTF8(entry.getKey().toString()),
-                urlEncodeUTF8(entry.getValue().toString())
-            ));
-        }
         try {
-            URL apiUrl = new URL("http://testingbot.com/hq");
-            URLConnection conn = apiUrl.openConnection();
-            conn.setDoOutput(true);
-            
-            OutputStreamWriter wr = new OutputStreamWriter(conn.getOutputStream());
-            wr.write(sb.toString());
-            wr.flush();
-            
-            BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            String line;
-            while ((line = rd.readLine()) != null) {
-                System.out.println(line);
+            DefaultHttpClient httpClient = new DefaultHttpClient();
+            String userpass = apiKey + ":" + apiSecret;
+            String encoding = Base64.encodeBytes(userpass.getBytes("UTF-8"));
+
+            HttpPut putRequest = new HttpPut("https://api.testingbot.com/v1/tests/" + sessionID);
+            putRequest.setHeader("Authorization", "Basic " + encoding);
+
+            List<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>(2);
+            for (Map.Entry<String,String> entry : details.entrySet())
+            {
+                nameValuePairs.add(new BasicNameValuePair("test[" + entry.getKey().toString() + "]", entry.getValue().toString()));
             }
-    
-            wr.close();
             
+            putRequest.setEntity(new UrlEncodedFormEntity(nameValuePairs));
+
+            HttpResponse response = httpClient.execute(putRequest);
+            BufferedReader br = new BufferedReader(
+                     new InputStreamReader((response.getEntity().getContent()), "UTF8"));
+            String output;
+            StringBuilder sb = new StringBuilder();
+            while ((output = br.readLine()) != null) {
+                    sb.append(output);
+            }
+            System.out.println(sb.toString());
         } catch (Exception ex) {
             Logger.getLogger(TestingBotAPI.class.getName()).log(Level.SEVERE, null, ex);
         }
