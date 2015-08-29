@@ -3,7 +3,7 @@
   <parent>
     <groupId>org.jenkins-ci.plugins</groupId>
     <artifactId>plugin</artifactId>
-    <version>1.462</version><!-- which version of Jenkins is this plugin built against? -->
+    <version>1.570</version><!-- which version of Jenkins is this plugin built against? -->
   </parent>
 	
   <scm>
@@ -44,7 +44,7 @@
 	<description>Use this Jenkins plugin to see videos/screenshots of your Selenium tests</description>
   <groupId>testingbot</groupId>
   <artifactId>testingbot</artifactId>
-  <version>1.2-SNAPSHOT</version>
+  <version>1.10-SNAPSHOT</version>
   <packaging>hpi</packaging>
 
   <!-- get every artifact through maven.glassfish.org, which proxies all the artifacts that we need -->
@@ -60,13 +60,31 @@
             <url>http://repo.jenkins-ci.org/public/</url>
         </pluginRepository>
     </pluginRepositories>
-
+		 <build>
+		    <plugins>
+		      <plugin>
+		        <groupId>org.jenkins-ci.tools</groupId>
+		        <artifactId>maven-hpi-plugin</artifactId>
+		        <!-- version specified in grandparent pom -->
+		        <extensions>true</extensions>
+		        <configuration>
+		          <showDeprecation>true</showDeprecation>
+		          <disabledTestInjection>true</disabledTestInjection>
+		        </configuration>
+		      </plugin>
+		    </plugins>
+		</build>
   <dependencies>
     <dependency>
       <groupId>com.testingbot</groupId>
       <artifactId>TestingBotTunnel</artifactId>
-      <version>1.14</version>
+      <version>1.16</version>
       <scope>compile</scope>
+    </dependency>
+    <dependency>
+          <groupId>org.apache.httpcomponents</groupId>
+          <artifactId>httpclient</artifactId>
+          <version>4.3.6</version>
     </dependency>
   </dependencies>
 </project>
