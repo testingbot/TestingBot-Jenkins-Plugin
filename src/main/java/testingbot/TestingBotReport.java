@@ -4,13 +4,10 @@ package testingbot;
  *
  * @author testingbot.com
  */
+import com.testingbot.testingbotrest.TestingbotREST;
 import hudson.model.AbstractBuild;
 import hudson.tasks.junit.CaseResult;
 import hudson.tasks.junit.TestAction;
-import java.io.BufferedReader;
-import java.io.DataInputStream;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
 import java.util.Collections;
 import java.util.List;
 
@@ -20,6 +17,9 @@ import java.util.List;
  */
 public class TestingBotReport extends TestAction {
     public final CaseResult parent;
+    private final TestingbotREST apiClient;
+    private final TestingBotCredential credentials;
+    
     /**
      * Session IDs.
      */
@@ -28,6 +28,8 @@ public class TestingBotReport extends TestAction {
     public TestingBotReport(CaseResult parent, List<String> ids) {
         this.parent = parent;
         this.ids = ids;
+        credentials = TestingBotCredentials.getCredentials();
+        this.apiClient = new TestingbotREST(credentials.getKey(), credentials.getSecret());
     }
 
     public AbstractBuild<?, ?> getBuild() {
@@ -43,16 +45,11 @@ public class TestingBotReport extends TestAction {
     }
     
     public String getClientKey() {
-        try {
-          FileInputStream fstream = new FileInputStream(System.getProperty("user.home") + "/.testingbot");
-          DataInputStream in = new DataInputStream(fstream);
-          BufferedReader br = new BufferedReader(new InputStreamReader(in));
-          String strLine = br.readLine();
-          String[] data = strLine.split(":");
-          return data[0];
-        } catch (Exception e) {}
-        
-        return "";
+        return credentials.getKey();
+    }
+    
+    public String getHash() {
+        return apiClient.getAuthenticationHash(getId());
     }
 
     public String getIconFileName() {
