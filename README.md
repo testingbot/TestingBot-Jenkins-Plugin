@@ -1,5 +1,4 @@
 # Jenkins TestingBot Plugin
-==============================
 
 This Jenkins plugin integrates TestingBot.com features inside Jenkins.
 
@@ -16,8 +15,6 @@ This Jenkins plugin integrates TestingBot.com features inside Jenkins.
 
 The plugin will parse test results files in the post-build step to associate test results with TestingBot jobs.
 The plugin will parse both `stdout` and `stderr`, looking for lines that have this format:
-
-As part of the post-build activities, the Sauce plugin will parse the test result files in an attempt to associate test results with Sauce jobs. It does this by identifying lines in the stdout or stderr that have this format:
 
 `TestingBotSessionID=<sessionId>`
 
