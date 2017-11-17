@@ -1,7 +1,6 @@
 package testingbot;
 import hudson.Launcher;
 import hudson.Extension;
-import hudson.util.FormValidation;
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
 import hudson.model.AbstractProject;
@@ -11,10 +10,8 @@ import java.io.*;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
-import org.kohsuke.stapler.QueryParameter;
 
-import javax.servlet.ServletException;
-import java.io.IOException;
+import java.nio.file.Paths;
 
 /**
  * @author testingbot.com
@@ -31,6 +28,7 @@ public class TestingBotBuilder extends Builder {
 
     /**
      * We'll use this from the <tt>config.jelly</tt>.
+     * @return String name
      */
     public String getName() {
         return name;
@@ -63,14 +61,11 @@ public class TestingBotBuilder extends Builder {
         public DescriptorImpl() {
             super();
             try {
-              FileInputStream fstream = new FileInputStream(System.getProperty("user.home") + "/.testingbot");
-              // Get the object of DataInputStream
-              DataInputStream in = new DataInputStream(fstream);
-              BufferedReader br = new BufferedReader(new InputStreamReader(in));
-              String strLine = br.readLine();
-              String[] data = strLine.split(":");
-              this.apiKey = data[0];
-              this.apiSecret = data[1];
+              TestingBotCredential credentials = TestingBotCredentials.getCredentials();
+              if (credentials != null) {
+                this.apiKey = credentials.getKey();
+                this.apiSecret = credentials.getSecret();
+              }
             } catch (Exception e) {}
         }
 
@@ -81,6 +76,7 @@ public class TestingBotBuilder extends Builder {
 
         /**
          * This human readable name is used in the configuration screen.
+         * @return String
          */
         public String getDisplayName() {
             return "TestingBot";
@@ -96,7 +92,7 @@ public class TestingBotBuilder extends Builder {
             // save in ~/.testingbot
             
             try {
-                FileWriter fstream = new FileWriter(System.getProperty("user.home") + "/.testingbot");
+                FileWriter fstream = new FileWriter(Paths.get(System.getProperty("user.home"), ".testingbot").toFile());
                 BufferedWriter out = new BufferedWriter(fstream);
                 out.write(this.apiKey + ":" + this.apiSecret);
                 out.close();

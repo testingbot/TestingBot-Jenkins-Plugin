@@ -11,14 +11,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.kohsuke.stapler.DataBoundConstructor;
 import com.testingbot.tunnel.App;
-import java.io.BufferedReader;
-import java.io.DataInputStream;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
-/**
- *
- * @author testingbot.com
- */
+import java.util.Map;
+
 public final class TestingBotBuildWrapper extends BuildWrapper {
     
     private boolean enableSSH;
@@ -33,20 +27,22 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
         if (this.enableSSH == true) {
             String apiKey = null;
             String apiSecret = null;
+            TestingBotCredential credentials = TestingBotCredentials.getCredentials();
 
+            final App app = new App();
             try {
-               FileInputStream fstream = new FileInputStream(System.getProperty("user.home") + "/.testingbot");
-               // Get the object of DataInputStream
-               DataInputStream in = new DataInputStream(fstream);
-               BufferedReader br = new BufferedReader(new InputStreamReader(in));
-               String strLine = br.readLine();
-               String[] data = strLine.split(":");
-               apiKey = data[0];
-               apiSecret = data[1];
+                if (credentials != null) {
+                    apiKey = credentials.getKey();
+                    apiSecret = credentials.getSecret();
+                }
              } catch (Exception e) { }
+            
+            if (apiKey == null) {
+                listener.getLogger().println("No TestingBot key/secret found while trying to start a TestingBot Tunnel");
+                return new TestingBotBuildEnvironment(app);
+            }
         
             listener.getLogger().println("Starting TestingBot Tunnel");
-            final App app = new App();
             app.setClientKey(apiKey);
             app.setClientSecret(apiSecret);
             try {
@@ -55,18 +51,10 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
             } catch (Exception ex) {
                 Logger.getLogger(TestingBotBuildWrapper.class.getName()).log(Level.SEVERE, null, ex);
             }
-            return new Environment() {
-
-                @Override
-                public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException, InterruptedException {
-                    listener.getLogger().println("Closing TestingBot Tunnel");
-                    app.stop();
-                    return true;
-                }
-            };
-        } else {
-            return new Environment() {};
+            return new TestingBotBuildEnvironment(app);
         }
+        
+        return new TestingBotBuildEnvironment(null);
     }
 
     /**
@@ -90,4 +78,47 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
             return "TestingBot Tunnel";
         }
     }
+    
+    private interface EnvVars {
+        String TESTINGBOT_KEY = "TESTINGBOT_KEY";
+        String TB_KEY = "TB_KEY";
+        String TESTINGBOT_SECRET = "TESTINGBOT_SECRET";
+        String TB_SECRET = "TB_SECRET";
+        String TESTINGBOT_TUNNEL = "TESTINGBOT_TUNNEL";
+    }
+    
+    private class TestingBotBuildEnvironment extends BuildWrapper.Environment {
+        private final App app;
+        
+        public TestingBotBuildEnvironment(App app) {
+            this.app = app;
+        }
+        
+        @Override
+        public void buildEnvVars(Map<String, String> env) {
+            TestingBotCredential credentials = TestingBotCredentials.getCredentials();
+            if (credentials != null) {
+                env.put(EnvVars.TESTINGBOT_KEY, credentials.getKey());
+                env.put(EnvVars.TB_KEY, credentials.getKey());
+                env.put(EnvVars.TESTINGBOT_SECRET, credentials.getSecret());
+                env.put(EnvVars.TB_SECRET, credentials.getSecret());
+            }
+            
+            if (app != null) {
+                env.put(EnvVars.TESTINGBOT_TUNNEL, app != null ? "true" : "false");
+            }
+
+            super.buildEnvVars(env);
+        }
+        
+        @Override
+        public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException, InterruptedException {
+            if (app != null) {
+                listener.getLogger().println("Closing TestingBot Tunnel");
+                app.stop();
+            }
+            return true;
+        }
+    }
+
 }
