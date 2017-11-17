@@ -1,30 +1,33 @@
-Jenkins TestingBot Plugin
+	Jenkins TestingBot Plugin
 ============================
 
-This Jenkins plugin will display test details from TestingBot.com inside Jenkins.
+This Jenkins plugin integrates TestingBot.com features inside Jenkins.
 
-License
--------
+## Features
 
-	(The MIT License)
+* Setup and teardown TestingBot Tunnel for testing internal websites, dev or staging environments. 
+* Embed TestingBot Reports in your Jenkins job results; see screenshots/video of each tests from inside Jenkins.
 
-	Copyright (c) TestingBot
+## Prerequisites
 
-	Permission is hereby granted, free of charge, to any person obtaining
-	a copy of this software and associated documentation files (the
-	'Software'), to deal in the Software without restriction, including
-	without limitation the rights to use, copy, modify, merge, publish,
-	distribute, sublicense, and/or sell copies of the Software, and to
-	permit persons to whom the Software is furnished to do so, subject to
-	the following conditions:
+* Minimum supported Jenkins version is 1.609.2.
 
-	The above copyright notice and this permission notice shall be
-	included in all copies or substantial portions of the Software.
+## Embedded TestingBot Reports
 
-	THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
-	EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-	MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-	IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-	CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-	TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-	SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+The plugin will parse test results files in the post-build step to associate test results with TestingBot jobs.
+The plugin will parse both `stdout` and `stderr`, looking for lines that have this format:
+
+As part of the post-build activities, the Sauce plugin will parse the test result files in an attempt to associate test results with Sauce jobs. It does this by identifying lines in the stdout or stderr that have this format:
+TestingBotSessionID=<session id>
+
+The sessionId can be obtained from the `RemoteWebDriver` instance of Selenium.
+
+## Building the Plugin
+
+To build the plugin, use:
+
+`mvn package`
+
+## Reporting Issues
+
+Please [file a new issue](https://github.com/testingbot/TestingBot-Jenkins-Plugin/issues).
