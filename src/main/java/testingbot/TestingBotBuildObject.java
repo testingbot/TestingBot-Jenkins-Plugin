@@ -5,7 +5,7 @@ public class TestingBotBuildObject {
     private String sessionId;
     private String className;
     private String testName;
-    private boolean isPassed;
+    private final boolean isPassed;
 
     public TestingBotBuildObject(String sessionId, String className, String testName, boolean isPassed) {
       this.sessionId = sessionId;

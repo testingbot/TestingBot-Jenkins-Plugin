@@ -7,17 +7,15 @@ import hudson.model.BuildListener;
 import hudson.model.Descriptor;
 import hudson.tasks.junit.CaseResult;
 import hudson.tasks.junit.SuiteResult;
-import hudson.tasks.junit.TestAction;
 import hudson.tasks.junit.TestDataPublisher;
-import hudson.tasks.junit.TestObject;
 import hudson.tasks.junit.TestResult;
 import hudson.tasks.junit.TestResultAction.Data;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.kohsuke.stapler.DataBoundConstructor;
+import com.testingbot.testingbotrest.TestingbotREST;
 
 /**
  *
@@ -30,11 +28,15 @@ public class TestReporter extends TestDataPublisher {
     }
 
     @Override
-    public Data getTestData(AbstractBuild<?, ?> ab, Launcher lnchr, BuildListener bl, TestResult tr) throws IOException, InterruptedException {
+    public TestingBotReportFactory getTestData(AbstractBuild<?, ?> ab, Launcher lnchr, BuildListener bl, TestResult tr) throws IOException, InterruptedException {
         bl.getLogger().println("Scanning for test data...");
         boolean foundSession = false;
         List<String> sessionIDs = null;
-        
+        TestingBotCredential credentials = TestingBotCredentials.getCredentials();
+        if (credentials == null) {
+            return null;
+        }
+        TestingbotREST api = new TestingbotREST(credentials.getKey(), credentials.getSecret());
         for (SuiteResult sr : tr.getSuites()) {
             for (CaseResult cr : sr.getCases()) {
                 sessionIDs = TestingBotReportFactory.findSessionIDs(cr);
@@ -43,8 +45,7 @@ public class TestReporter extends TestDataPublisher {
                     if (errorDetails == null) {
                         errorDetails = "";
                     }
-                    TestingBotAPI api = new TestingBotAPI();
-                    Map<String, String> data = new HashMap<String, String>();
+                    Map<String, Object> data = new HashMap<String, Object>();
                     data.put("success", cr.isPassed() ? "1" : "0");
                     data.put("status_message", errorDetails);
                     data.put("name", cr.getFullName());
@@ -70,5 +71,4 @@ public class TestReporter extends TestDataPublisher {
             return "Embed TestingBot reports";
         }
     }
-        
 }

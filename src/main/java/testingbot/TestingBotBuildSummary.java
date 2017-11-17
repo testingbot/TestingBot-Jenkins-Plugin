@@ -3,8 +3,6 @@ package testingbot;
 import hudson.Extension;
 import hudson.model.AbstractBuild;
 import hudson.model.InvisibleAction;
-import hudson.model.ParameterValue;
-import hudson.model.ParametersAction;
 import hudson.model.TaskListener;
 import hudson.model.listeners.RunListener;
 import hudson.tasks.junit.CaseResult;
@@ -12,19 +10,16 @@ import hudson.tasks.junit.SuiteResult;
 import hudson.tasks.junit.TestResult;
 import hudson.tasks.test.AbstractTestResultAction;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import testingbot.TestingBotReportFactory;
-import testingbot.TestingBotBuildObject;
 
 public class TestingBotBuildSummary extends InvisibleAction {
-    private AbstractBuild<?,?> build;
+    private final AbstractBuild<?,?> build;
     public List<TestingBotBuildObject> sessionIds = new ArrayList<TestingBotBuildObject>();
-    private static Map<Integer,List<String>> sessions = new HashMap<Integer,List<String>>();
+    private static final Map<Integer,List<String>> sessions = new HashMap<Integer,List<String>>();
     
     public TestingBotBuildSummary(AbstractBuild<?,?> build, List<TestingBotBuildObject> sessionIds) {
         this.build = build;
