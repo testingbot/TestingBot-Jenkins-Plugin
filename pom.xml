@@ -8,7 +8,7 @@
    </parent>
    <properties>
       <jenkins.version>1.609.2</jenkins.version>
-      <java.level>7</java.level>
+      <java.level>8</java.level>
       <hudsonTags>buildwrapper</hudsonTags>
       <findbugs.skip>true</findbugs.skip>
    </properties>
@@ -79,17 +79,17 @@
       <dependency>
          <groupId>org.jenkins-ci.plugins</groupId>
          <artifactId>junit</artifactId>
-         <version>1.9</version>
+         <version>1.21</version>
       </dependency>
       <dependency>
          <groupId>com.testingbot</groupId>
          <artifactId>testingbotrest</artifactId>
-         <version>1.0.2</version>
+         <version>1.0.5</version>
       </dependency>
       <dependency>
          <groupId>org.apache.httpcomponents</groupId>
          <artifactId>httpclient</artifactId>
-         <version>4.3.6</version>
+         <version>4.5.10</version>
       </dependency>
    </dependencies>
 </project>
