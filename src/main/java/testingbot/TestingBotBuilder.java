@@ -69,6 +69,7 @@ public class TestingBotBuilder extends Builder {
             } catch (Exception e) {}
         }
 
+        @Override
         public boolean isApplicable(Class<? extends AbstractProject> aClass) {
             // Indicates that this builder can be used with all kinds of project types 
             return true;
@@ -78,6 +79,7 @@ public class TestingBotBuilder extends Builder {
          * This human readable name is used in the configuration screen.
          * @return String
          */
+        @Override
         public String getDisplayName() {
             return "TestingBot";
         }
@@ -96,7 +98,7 @@ public class TestingBotBuilder extends Builder {
                 BufferedWriter out = new BufferedWriter(fstream);
                 out.write(this.apiKey + ":" + this.apiSecret);
                 out.close();
-            } catch (Exception e){}
+            } catch (IOException e){}
             save();
             return super.configure(req,formData);
         }

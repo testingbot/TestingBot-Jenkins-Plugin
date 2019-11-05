@@ -3,7 +3,6 @@ package testingbot;
 import hudson.tasks.junit.CaseResult;
 import hudson.tasks.junit.TestAction;
 import hudson.tasks.junit.TestObject;
-import hudson.tasks.junit.TestResult;
 import hudson.tasks.junit.TestResultAction.Data;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,7 +23,7 @@ public class TestingBotReportFactory extends Data {
     }
     
     public static List<String> findSessionIDs(CaseResult testResult) {
-        List<String> sessions = new ArrayList<String>();
+        List<String> sessions = new ArrayList<>();
         Pattern p = Pattern.compile("TestingBotSessionID=(.*)");
         if (testResult.getStdout() != null) {
             Matcher matchOut = p.matcher(testResult.getStdout());

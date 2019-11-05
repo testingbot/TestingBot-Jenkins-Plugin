@@ -3,6 +3,7 @@ package testingbot;
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Paths;
 import java.util.logging.Level;
@@ -32,7 +33,7 @@ public class TestingBotCredentials {
            
            cachedCredentials = new TestingBotCredential(apiKey, apiSecret);
            return cachedCredentials;
-        } catch (Exception e) {
+        } catch (IOException e) {
             Logger.getLogger(TestingBotCredentials.class.getName()).log(Level.SEVERE, null, e);
         }
         

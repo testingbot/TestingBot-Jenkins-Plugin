@@ -52,14 +52,17 @@ public class TestingBotReport extends TestAction {
         return apiClient.getAuthenticationHash(getId());
     }
 
+    @Override
     public String getIconFileName() {
         return (ids.size() > 0) ? "/plugin/testingbot/images/24x24/logo.jpg" : null;
     }
 
+    @Override
     public String getDisplayName() {
         return "TestingBot Report";
     }
 
+    @Override
     public String getUrlName() {
         return (ids.size() > 0) ? "testingbot" : null;
     }
