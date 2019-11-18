@@ -15,11 +15,10 @@ import java.util.regex.Pattern;
  * @author testingbot.com
  */
 public class TestingBotReportFactory extends Data {
-    
-    public static final TestingBotReportFactory INSTANCE = new TestingBotReportFactory();
-    
-    public Object readResolve() {
-        return INSTANCE;
+    TestingBotCredentials credentials;
+    public TestingBotReportFactory(TestingBotCredentials credentials) {
+        super();
+        this.credentials = credentials;
     }
     
     public static List<String> findSessionIDs(CaseResult testResult) {
@@ -66,7 +65,7 @@ public class TestingBotReportFactory extends Data {
             CaseResult cr = (CaseResult) to;
             List<String> ids = findSessionIDs(cr);
             if (!ids.isEmpty()) {
-                return Collections.singletonList(new TestingBotReport(cr,ids));
+                return Collections.singletonList(new TestingBotReport(credentials, cr,ids));
             }
         }
         return Collections.emptyList();
