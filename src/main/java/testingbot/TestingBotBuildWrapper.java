@@ -4,6 +4,7 @@ import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
+import com.testingbot.tunnel.Api;
 import hudson.Extension;
 import hudson.Launcher;
 import hudson.model.AbstractBuild;
@@ -17,7 +18,6 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.AncestorInPath;
 import com.testingbot.tunnel.App;
 import hudson.model.AbstractItem;
-import hudson.model.AbstractProject;
 import hudson.model.BuildableItemWithBuildWrappers;
 import hudson.model.Job;
 import hudson.model.Item;
@@ -26,6 +26,7 @@ import hudson.util.DescribableList;
 import java.util.Map;
 import hudson.util.ListBoxModel;
 import java.util.ArrayList;
+import net.sf.json.JSONObject;
 
 public final class TestingBotBuildWrapper extends BuildWrapper {
 
@@ -84,7 +85,20 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
             app.setClientSecret(apiSecret);
             try {
                 app.boot();
-                Thread.sleep(60000);
+                Api api = app.getApi();
+                JSONObject response;
+                boolean ready = false;
+                String tunnelID = Integer.toString(app.getTunnelID());
+                while (!ready) {
+                    try {
+                        response = api.pollTunnel(tunnelID);
+                        ready = response.getString("state").equals("READY");
+                    } catch (Exception ex) {
+                        Logger.getLogger(TestingBotBuildWrapper.class.getName()).log(Level.SEVERE, null, ex);
+                        break;
+                    }
+                    Thread.sleep(3000);
+                }
             } catch (Exception ex) {
                 Logger.getLogger(TestingBotBuildWrapper.class.getName()).log(Level.SEVERE, null, ex);
             }
