@@ -4,6 +4,7 @@ import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
+import com.google.common.base.Strings;
 import com.testingbot.tunnel.Api;
 import hudson.Extension;
 import hudson.Launcher;
@@ -18,14 +19,17 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.AncestorInPath;
 import com.testingbot.tunnel.App;
 import hudson.model.AbstractItem;
+import hudson.model.AbstractProject;
 import hudson.model.BuildableItemWithBuildWrappers;
 import hudson.model.Job;
 import hudson.model.Item;
+import hudson.model.listeners.ItemListener;
 import hudson.security.ACL;
 import hudson.util.DescribableList;
 import java.util.Map;
 import hudson.util.ListBoxModel;
 import java.util.ArrayList;
+import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
 public final class TestingBotBuildWrapper extends BuildWrapper {
@@ -138,7 +142,7 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
             return new StandardListBoxModel().withMatching(
                   CredentialsMatchers.anyOf(CredentialsMatchers.instanceOf(TestingBotCredentials.class)),
                   CredentialsProvider.lookupCredentials(TestingBotCredentials.class, context, ACL.SYSTEM,
-                      new ArrayList<DomainRequirement>()));
+                      new ArrayList<>()));
         }
     }
 
@@ -176,6 +180,21 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
             }
             return true;
         }
+    }
+    
+    protected boolean migrateCredentials(AbstractProject project) {
+        Logger.getLogger(TestingBotBuildWrapper.class.getName()).log(Level.INFO, "TestingBot Plugin: migrateCredentials: " + this.credentialsId);
+            
+        if (Strings.isNullOrEmpty(this.credentialsId)) {
+            try {
+                TestingBotCredentials.migrate();
+                return true;
+            } catch (Exception e) {
+                Logger.getLogger(TestingBotBuildWrapper.class.getName()).log(Level.SEVERE, e.getMessage(), e);
+        
+            }
+        }
+        return false;
     }
 
     static BuildWrapperItem<TestingBotBuildWrapper> findBuildWrapper(
@@ -216,6 +235,28 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
         BuildWrapperItem(T buildWrapper, AbstractItem buildItem) {
             this.buildWrapper = buildWrapper;
             this.buildItem = buildItem;
+        }
+    }
+    
+    @Extension
+    static final public class ItemListenerImpl extends ItemListener {
+        public void onLoaded() {
+            Jenkins instance = Jenkins.getInstance();
+            if (instance == null) { return; }
+            for (BuildableItemWithBuildWrappers item : instance.getItems(BuildableItemWithBuildWrappers.class))
+            {
+                AbstractProject p = item.asProject();
+                for (TestingBotBuildWrapper bw : ((BuildableItemWithBuildWrappers)p).getBuildWrappersList().getAll(TestingBotBuildWrapper.class))
+                {
+                    if (bw.migrateCredentials(p)) {
+                        try {
+                            p.save();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            }
         }
     }
 }

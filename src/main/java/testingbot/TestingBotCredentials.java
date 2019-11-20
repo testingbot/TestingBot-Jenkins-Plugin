@@ -7,6 +7,7 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.export.Exported;
 
 import com.cloudbees.plugins.credentials.BaseCredentials;
+import com.cloudbees.plugins.credentials.Credentials;
 import com.cloudbees.plugins.credentials.CredentialsDescriptor;
 import com.cloudbees.plugins.credentials.CredentialsMatcher;
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
@@ -15,6 +16,7 @@ import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.CredentialsStore;
 import com.cloudbees.plugins.credentials.NameWith;
+import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
 import com.cloudbees.plugins.credentials.common.IdCredentials;
 import com.cloudbees.plugins.credentials.common.StandardCredentials;
 import com.cloudbees.plugins.credentials.domains.Domain;
@@ -30,22 +32,34 @@ import hudson.model.ModelObject;
 import hudson.model.User;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
+import java.io.BufferedReader;
+import java.io.DataInputStream;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.file.Paths;
 import jenkins.model.Jenkins;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 @NameWith(value = TestingBotCredentials.NameProvider.class)
 public class TestingBotCredentials extends BaseCredentials implements StandardCredentials {
+    private static final Logger logger = Logger.getLogger(TestingBotCredentials.class.getName());
     private static final String CREDENTIAL_DISPLAY_NAME = "TestingBot";
     private static final String OK_VALID_AUTH = "Success";
     private static final String ERR_INVALID_AUTH = "Invalid key or secret.";
-    
+
     private final String id;
     private final String description;
     private final String key;
     private final Secret secret;
-    
+
     @DataBoundConstructor
     public TestingBotCredentials(String id, String description, String key, String secret) {
         super(CredentialsScope.GLOBAL);
@@ -54,7 +68,7 @@ public class TestingBotCredentials extends BaseCredentials implements StandardCr
         this.key = Util.fixNull(key);
         this.secret = Secret.fromString(secret);
     }
-    
+
     @Exported
     public String getKey() {
         return key;
@@ -76,7 +90,7 @@ public class TestingBotCredentials extends BaseCredentials implements StandardCr
     public boolean hasSecret() {
         return (secret != null);
     }
-    
+
     @NonNull
     @Exported
     public String getDescription() {
@@ -98,11 +112,72 @@ public class TestingBotCredentials extends BaseCredentials implements StandardCr
     public final int hashCode() {
         return IdCredentials.Helpers.hashCode(this);
     }
-    
+
     public static FormValidation testAuthentication(final String key, final String secret) {
         return FormValidation.ok();
     }
-    
+
+    private static List<String> getLegacyCredentials() {
+        try {
+            String apiKey = null;
+            String apiSecret = null;
+            FileInputStream fstream = new FileInputStream(Paths.get(System.getProperty("user.home"), ".testingbot").toFile());
+            // Get the object of DataInputStream
+            DataInputStream in = new DataInputStream(fstream);
+            BufferedReader br = new BufferedReader(new InputStreamReader(in));
+            String strLine = br.readLine();
+            String[] data = strLine.split(":");
+            apiKey = data[0];
+            apiSecret = data[1];
+
+            List<String> credentials = new ArrayList<>();
+            credentials.add(apiKey);
+            credentials.add(apiSecret);
+
+            return credentials;
+        } catch (IOException e) {
+            Logger.getLogger(TestingBotCredentials.class.getName()).log(Level.SEVERE, null, e);
+        }
+
+        return null;
+    }
+
+    public static void migrate() throws IOException {
+        final List<TestingBotCredentials> existingCredentials = TestingBotCredentials.availableCredentials(null);
+Logger.getLogger(TestingBotCredentials.class.getName()).log(Level.INFO, "existingCredentials " + existingCredentials.size());
+          
+        if (existingCredentials == null || existingCredentials.isEmpty()) {
+            Logger.getLogger(TestingBotCredentials.class.getName()).log(Level.INFO, "No existing credentials, will try to migrate");
+          
+            String createdCredentialId = UUID.randomUUID().toString();
+
+            final List<String> legacyCredentials = TestingBotCredentials.getLegacyCredentials();
+            if (legacyCredentials == null) {
+                return;
+            }
+            Logger.getLogger(TestingBotCredentials.class.getName()).log(Level.INFO, "Found existing TestingBot credentials");
+          
+            final StandardCredentials credentialsToCreate;
+            credentialsToCreate = new TestingBotCredentials(
+                    createdCredentialId,
+                    "migrated from old TestingBot credentials",
+                    legacyCredentials.get(0),
+                    legacyCredentials.get(1)
+            );
+            final SystemCredentialsProvider credentialsProvider = SystemCredentialsProvider.getInstance();
+            final Map<Domain, List<Credentials>> credentialsMap = credentialsProvider.getDomainCredentialsMap();
+
+            final Domain domain = Domain.global();
+            if (credentialsMap.get(domain) == null) {
+                credentialsMap.put(domain, Collections.EMPTY_LIST);
+            }
+            credentialsMap.get(domain).add(credentialsToCreate);
+
+            credentialsProvider.setDomainCredentialsMap(credentialsMap);
+            credentialsProvider.save();
+        }
+    }
+
     public static TestingBotCredentials getCredentials(final AbstractItem buildItem, final String credentialsId) {
         List<TestingBotCredentials> available = availableCredentials(buildItem);
         if (available.isEmpty()) {
@@ -127,7 +202,7 @@ public class TestingBotCredentials extends BaseCredentials implements StandardCr
                 TestingBotCredentials.class,
                 abstractItem,
                 null,
-                new ArrayList<DomainRequirement>());
+                new ArrayList<>());
     }
 
     @Extension(ordinal = 1.0D)
@@ -142,7 +217,7 @@ public class TestingBotCredentials extends BaseCredentials implements StandardCr
         }
 
         public final FormValidation doAuthenticate(@QueryParameter("key") String key,
-                                                   @QueryParameter("secret") String secret) {
+                @QueryParameter("secret") String secret) {
             return testAuthentication(key, secret);
         }
 
@@ -152,7 +227,8 @@ public class TestingBotCredentials extends BaseCredentials implements StandardCr
         }
 
         /**
-         * @return always returns false since the scope of Local credentials are always Global.
+         * @return always returns false since the scope of Local credentials are
+         * always Global.
          */
         @Override
         public boolean isScopeRelevant() {
@@ -160,7 +236,8 @@ public class TestingBotCredentials extends BaseCredentials implements StandardCr
         }
 
         /**
-         * @return always returns false since the scope of Local credentials are always Global.
+         * @return always returns false since the scope of Local credentials are
+         * always Global.
          */
         @SuppressWarnings("unused") // used by stapler
         public boolean isScopeRelevant(ModelObject object) {

@@ -28,18 +28,19 @@ import testingbot.TestingBotBuildWrapper.BuildWrapperItem;
  * @author testingbot.com
  */
 public class TestReporter extends TestDataPublisher {
+
     /**
      * Logger instance.
      */
     private static final Logger logger = Logger.getLogger(TestReporter.class.getName());
-    
+
     @Extension(ordinal = 1000) // JENKINS-12161
     public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
-    
+
     @DataBoundConstructor
     public TestReporter() {
     }
-    
+
     @Override
     public TestResultAction.Data contributeTestData(Run<?, ?> run, @Nonnull FilePath workspace, Launcher launcher, TaskListener listener, TestResult testResult) throws IOException, InterruptedException {
         boolean foundSession = false;
@@ -47,40 +48,42 @@ public class TestReporter extends TestDataPublisher {
         TestingBotCredentials credentials = null;
         TestingBotBuildAction buildAction = run.getAction(TestingBotBuildAction.class);
         if (buildAction != null) {
-          credentials = buildAction.getCredentials();
+            credentials = buildAction.getCredentials();
         } else {
-          BuildWrapperItem<TestingBotBuildWrapper> wrapperItem =
-              TestingBotBuildWrapper.findBuildWrapper(run.getParent());
-          if (wrapperItem == null || wrapperItem.buildWrapper == null) {
-            return null;
-          }
-          credentials = TestingBotCredentials.getCredentials(wrapperItem.buildItem,
-              wrapperItem.buildWrapper.getCredentialsId());
+            BuildWrapperItem<TestingBotBuildWrapper> wrapperItem
+                    = TestingBotBuildWrapper.findBuildWrapper(run.getParent());
+            if (wrapperItem == null || wrapperItem.buildWrapper == null) {
+                return null;
+            }
+            credentials = TestingBotCredentials.getCredentials(wrapperItem.buildItem,
+                    wrapperItem.buildWrapper.getCredentialsId());
         }
 
         if (credentials == null) {
             return null;
         }
         TestingbotREST api = new TestingbotREST(credentials.getKey(), credentials.getDecryptedSecret());
-        for (SuiteResult sr : testResult.getSuites()) {
-            for (CaseResult cr : sr.getCases()) {
-                sessionIDs = TestingBotReportFactory.findSessionIDs(cr);
-                if (!sessionIDs.isEmpty()) {
-                    String errorDetails = cr.getErrorDetails();
-                    if (errorDetails == null) {
-                        errorDetails = "";
+        if (testResult != null) {
+            for (SuiteResult sr : testResult.getSuites()) {
+                for (CaseResult cr : sr.getCases()) {
+                    sessionIDs = TestingBotReportFactory.findSessionIDs(cr);
+                    if (!sessionIDs.isEmpty()) {
+                        String errorDetails = cr.getErrorDetails();
+                        if (errorDetails == null) {
+                            errorDetails = "";
+                        }
+                        Map<String, Object> data = new HashMap<>();
+                        data.put("success", cr.isPassed() ? "1" : "0");
+                        data.put("status_message", errorDetails);
+                        data.put("name", cr.getFullName());
+                        api.updateTest(sessionIDs.get(0), data);
+
+                        foundSession = true;
                     }
-                    Map<String, Object> data = new HashMap<>();
-                    data.put("success", cr.isPassed() ? "1" : "0");
-                    data.put("status_message", errorDetails);
-                    data.put("name", cr.getFullName());
-                    api.updateTest(sessionIDs.get(0), data);
-            
-                    foundSession = true;
                 }
             }
         }
-        
+
         if (!foundSession) {
             logger.finer("No TestingBot sessionIDs found in test output.");
             return null;
@@ -94,12 +97,13 @@ public class TestReporter extends TestDataPublisher {
         FilePath filePath = ab.getWorkspace();
         if (filePath == null) {
             return null;
-        }else {
+        } else {
             return contributeTestData(ab, filePath, lnchr, bl, tr);
         }
     }
 
     private static class DescriptorImpl extends Descriptor<TestDataPublisher> {
+
         @Override
         public String getDisplayName() {
             return "Embed TestingBot reports";

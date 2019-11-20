@@ -75,18 +75,6 @@ public class TestingBotBuilder extends Builder {
             return apiSecret;
         }
 
-        public DescriptorImpl() {
-            super();
-            try {
-//              TestingBotCredential credentials = TestingBotCredentials.getCredentials();
-//              if (credentials != null) {
-//                this.apiKey = credentials.getKey();
-//                this.apiSecret = credentials.getSecret();
-//              }
-            } catch (Exception e) {
-            }
-        }
-
         @Override
         public boolean isApplicable(Class<? extends AbstractProject> aClass) {
             // Indicates that this builder can be used with all kinds of project types 
