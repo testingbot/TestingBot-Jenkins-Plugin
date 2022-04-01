@@ -1,12 +1,13 @@
 package testingbot;
 
 import hudson.tasks.junit.CaseResult;
-import hudson.tasks.junit.TestAction;
 import hudson.tasks.junit.TestObject;
 import hudson.tasks.junit.TestResultAction.Data;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -15,6 +16,8 @@ import java.util.regex.Pattern;
  * @author testingbot.com
  */
 public class TestingBotReportFactory extends Data {
+    private static final Logger logger = Logger.getLogger(TestingBotReportFactory.class.getName());
+
     TestingBotCredentials credentials;
     public TestingBotReportFactory(TestingBotCredentials credentials) {
         super();
@@ -60,14 +63,15 @@ public class TestingBotReportFactory extends Data {
     }
 
     @Override
-    public List<? extends TestAction> getTestAction(TestObject to) {
+    public List<TestingBotReport> getTestAction(TestObject to) {
         if (to instanceof CaseResult) {
             CaseResult cr = (CaseResult) to;
             List<String> ids = findSessionIDs(cr);
             if (!ids.isEmpty()) {
-                return Collections.singletonList(new TestingBotReport(credentials, cr,ids));
+                return Collections.singletonList(new TestingBotReport(credentials, cr, ids));
             }
         }
+        logger.log(Level.WARNING, "Empty list for TB sessions");
         return Collections.emptyList();
     }
     

@@ -2,13 +2,16 @@ package testingbot;
 
 import com.testingbot.models.TestingbotTest;
 
-public class TestingBotBuildObject {
+import java.io.Serializable;
+
+public class TestingBotBuildObject implements Serializable {
     private String sessionId;
     private String className;
     private String testName;
     private final boolean isPassed;
     private String authHash;
     private transient TestingbotTest test;
+    private String environmentName;
 
     public TestingBotBuildObject(String sessionId, String className, String testName, boolean isPassed, String authHash, TestingbotTest test) {
       this.sessionId = sessionId;
@@ -17,6 +20,14 @@ public class TestingBotBuildObject {
       this.isPassed = isPassed;
       this.authHash = authHash;
       this.test = test;
+      this.environmentName = test.getBrowser() + " | " + test.getOs();
+    }
+
+    /**
+     * @return the environmentName
+     */
+    public String getEnvironmentName() {
+        return environmentName;
     }
 
     /**

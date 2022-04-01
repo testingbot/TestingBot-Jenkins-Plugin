@@ -61,7 +61,7 @@ public class TestingBotReport extends TestAction {
 
     @Override
     public String getIconFileName() {
-        return "/plugin/testingbot/images/24x24/logo.jpg";
+        return "/plugin/testingbot/images/logo.svg";
     }
 
     @Override

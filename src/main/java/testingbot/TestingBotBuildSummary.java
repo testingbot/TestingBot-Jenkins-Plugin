@@ -11,21 +11,26 @@ import hudson.tasks.junit.CaseResult;
 import hudson.tasks.junit.SuiteResult;
 import hudson.tasks.junit.TestResult;
 import hudson.tasks.test.AbstractTestResultAction;
+
+import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class TestingBotBuildSummary extends InvisibleAction {
+public class TestingBotBuildSummary extends InvisibleAction implements Serializable {
+    private static final long serialVersionUID = 1L;
     private final AbstractBuild<?,?> build;
-    public List<TestingBotBuildObject> sessionIds = new ArrayList<>();
-    private static final Map<Integer,List<String>> sessions = new HashMap<Integer,List<String>>();
+    public List<TestingBotBuildObject> sessionIds;
     
     public TestingBotBuildSummary(AbstractBuild<?,?> build, List<TestingBotBuildObject> sessionIds) {
         this.build = build;
         this.sessionIds = sessionIds;
+    }
+
+    @Override
+    public String getUrlName() {
+        return "testingbot";
     }
 
     public List<TestingBotBuildObject> getSessionIds() {
@@ -68,6 +73,7 @@ public class TestingBotBuildSummary extends InvisibleAction {
             }
             Logger.getLogger(TestingBotBuildSummary.class.getName()).log(Level.INFO, "try to get ids");
             r.addAction(new TestingBotBuildSummary(r, ids));
+            r.addAction(new TestingBotTestEmbed(ids));
         }
     }
 }
