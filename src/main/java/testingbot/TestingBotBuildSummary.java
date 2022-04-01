@@ -20,7 +20,7 @@ import java.util.logging.Logger;
 
 public class TestingBotBuildSummary extends InvisibleAction implements Serializable {
     private static final long serialVersionUID = 1L;
-    private final AbstractBuild<?,?> build;
+    private final transient AbstractBuild<?,?> build;
     public List<TestingBotBuildObject> sessionIds;
     
     public TestingBotBuildSummary(AbstractBuild<?,?> build, List<TestingBotBuildObject> sessionIds) {
@@ -44,6 +44,7 @@ public class TestingBotBuildSummary extends InvisibleAction implements Serializa
         public void onCompleted(AbstractBuild<?, ?> r, TaskListener listener) {
             if (r == null) {
                 Logger.getLogger(TestingBotBuildSummary.class.getName()).log(Level.INFO, "r is null", "r is null");
+                return;
             }
             if (r.getAction(AbstractTestResultAction.class) == null) {
                 Logger.getLogger(TestingBotBuildSummary.class.getName()).log(Level.INFO, "getaction is null", "getaction is null");

@@ -164,20 +164,15 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
                 env.put(TESTINGBOT_SECRET, credentials.getDecryptedSecret());
                 env.put(TB_SECRET, credentials.getDecryptedSecret());
             }
-
-            if (app != null) {
-                env.put(TESTINGBOT_TUNNEL, app != null ? "true" : "false");
-            }
+            env.put(TESTINGBOT_TUNNEL, "true");
 
             super.buildEnvVars(env);
         }
 
         @Override
         public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException, InterruptedException {
-            if (app != null) {
-                listener.getLogger().println("Closing TestingBot Tunnel");
-                app.stop();
-            }
+            listener.getLogger().println("Closing TestingBot Tunnel");
+            app.stop();
             return true;
         }
     }

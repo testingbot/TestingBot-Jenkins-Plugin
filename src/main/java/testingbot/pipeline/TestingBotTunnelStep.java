@@ -301,7 +301,7 @@ public class TestingBotTunnelStep extends AbstractStepImpl {
             body = getContext().newBodyInvoker()
                     .withContext(EnvironmentExpander.merge(getContext().get(EnvironmentExpander.class), new ExpanderImpl(env)))
                     .withCallback(new Callback(tbCredentials, options))
-                    .withDisplayName(null)
+                    .withDisplayName("TestingBot Tunnel")
                     .start();
 
             return false;

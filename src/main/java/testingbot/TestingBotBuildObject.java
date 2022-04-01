@@ -5,6 +5,7 @@ import com.testingbot.models.TestingbotTest;
 import java.io.Serializable;
 
 public class TestingBotBuildObject implements Serializable {
+    private static final long serialVersionUID = 1L;
     private String sessionId;
     private String className;
     private String testName;

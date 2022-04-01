@@ -37,6 +37,7 @@ import java.io.DataInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import jenkins.model.Jenkins;
 
@@ -118,14 +119,19 @@ public class TestingBotCredentials extends BaseCredentials implements StandardCr
     }
 
     private static List<String> getLegacyCredentials() {
+        DataInputStream in = null;
+        BufferedReader br = null;
         try {
             String apiKey = null;
             String apiSecret = null;
             FileInputStream fstream = new FileInputStream(Paths.get(System.getProperty("user.home"), ".testingbot").toFile());
             // Get the object of DataInputStream
-            DataInputStream in = new DataInputStream(fstream);
-            BufferedReader br = new BufferedReader(new InputStreamReader(in));
+            in = new DataInputStream(fstream);
+            br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
             String strLine = br.readLine();
+            if (strLine == null) {
+                return null;
+            }
             String[] data = strLine.split(":");
             apiKey = data[0];
             apiSecret = data[1];
@@ -137,6 +143,21 @@ public class TestingBotCredentials extends BaseCredentials implements StandardCr
             return credentials;
         } catch (IOException e) {
             Logger.getLogger(TestingBotCredentials.class.getName()).log(Level.SEVERE, null, e);
+        } finally {
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (br != null) {
+                try {
+                    br.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
 
         return null;

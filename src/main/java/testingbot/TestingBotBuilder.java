@@ -64,17 +64,6 @@ public class TestingBotBuilder extends Builder {
     @Extension // This indicates to Jenkins that this is an implementation of an extension point.
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
 
-        private String apiKey;
-        private String apiSecret;
-
-        public String getApiKey() {
-            return apiKey;
-        }
-
-        public String getApiSecret() {
-            return apiSecret;
-        }
-
         @Override
         public boolean isApplicable(Class<? extends AbstractProject> aClass) {
             // Indicates that this builder can be used with all kinds of project types 
