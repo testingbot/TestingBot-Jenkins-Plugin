@@ -113,6 +113,12 @@ To build the plugin, use:
 
 `mvn package`
 
+## Releasing the Plugin
+
+To release the plugin, use:
+
+`mvn release:prepare release:perform`
+
 ## Reporting Issues
 
 Please [file a new issue](https://github.com/testingbot/TestingBot-Jenkins-Plugin/issues).
