@@ -3,7 +3,6 @@ package testingbot;
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
-import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.google.common.base.Strings;
 import com.testingbot.tunnel.Api;
 import hudson.Extension;
@@ -15,6 +14,7 @@ import hudson.tasks.BuildWrapper;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.AncestorInPath;
 import com.testingbot.tunnel.App;
@@ -31,6 +31,8 @@ import hudson.util.ListBoxModel;
 import java.util.ArrayList;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
+
+import javax.annotation.Nullable;
 
 public final class TestingBotBuildWrapper extends BuildWrapper {
 
@@ -151,7 +153,7 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
         private final App app;
         private final TestingBotCredentials credentials;
 
-        public TestingBotBuildEnvironment(TestingBotCredentials credentials, App app) {
+        public TestingBotBuildEnvironment(TestingBotCredentials credentials, @Nullable App app) {
             this.credentials = credentials;
             this.app = app;
         }
@@ -164,15 +166,20 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
                 env.put(TESTINGBOT_SECRET, credentials.getDecryptedSecret());
                 env.put(TB_SECRET, credentials.getDecryptedSecret());
             }
-            env.put(TESTINGBOT_TUNNEL, "true");
+
+            if (app != null) {
+                env.put(TESTINGBOT_TUNNEL, app != null ? "true" : "false");
+            }
 
             super.buildEnvVars(env);
         }
 
         @Override
         public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException, InterruptedException {
-            listener.getLogger().println("Closing TestingBot Tunnel");
-            app.stop();
+            if (app != null) {
+                listener.getLogger().println("Closing TestingBot Tunnel");
+                app.stop();
+            }
             return true;
         }
     }
