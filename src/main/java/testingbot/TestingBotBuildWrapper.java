@@ -168,7 +168,7 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
             }
 
             if (app != null) {
-                env.put(TESTINGBOT_TUNNEL, app != null ? "true" : "false");
+                env.put(TESTINGBOT_TUNNEL,"true");
             }
 
             super.buildEnvVars(env);
