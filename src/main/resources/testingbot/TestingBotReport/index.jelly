@@ -2,7 +2,7 @@
          xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
   <l:layout title="TestingBot Report - ${it.parent.displayName}">
     <l:side-panel>
-      <l:task href=".." title="${%Back To Test Result}" icon="images/24x24/up.gif" />
+      <l:task href=".." title="${%Back To Test Result}" icon="icon-up icon-md" />
     </l:side-panel>
     <l:main-panel>
         <h1>TestingBot Report</h1>
