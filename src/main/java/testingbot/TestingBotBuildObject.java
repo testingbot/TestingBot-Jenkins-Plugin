@@ -11,7 +11,7 @@ public class TestingBotBuildObject implements Serializable {
     private String testName;
     private final boolean isPassed;
     private String authHash;
-    private transient TestingbotTest test;
+    private TestingbotTest test;
     private String environmentName;
 
     public TestingBotBuildObject(String sessionId, String className, String testName, boolean isPassed, String authHash, TestingbotTest test) {
