@@ -7,16 +7,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.sf.json.JSONObject;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
 
 /**
  * Shared TestingBot Tunnel lifecycle helper used by both the freestyle
@@ -27,7 +20,6 @@ import org.apache.commons.cli.ParseException;
  */
 public final class TunnelManager {
 
-    private static final Logger LOGGER = Logger.getLogger(TunnelManager.class.getName());
     private static final int POLL_INTERVAL_MS = 3000;
     private static final long READY_TIMEOUT_MS = 300_000L;
     private static final Pattern TOKEN = Pattern.compile("\"([^\"]*)\"|'([^']*)'|(\\S+)");
@@ -44,28 +36,6 @@ public final class TunnelManager {
         env.put(TestingBotBuildWrapper.TB_KEY, credentials.getKey());
         env.put(TestingBotBuildWrapper.TESTINGBOT_SECRET, credentials.getDecryptedSecret());
         env.put(TestingBotBuildWrapper.TB_SECRET, credentials.getDecryptedSecret());
-    }
-
-    /**
-     * The set of tunnel options accepted from the user. Acts as an allow-list limited to the
-     * options the embedded {@link App} can actually apply; anything else (e.g. {@code --se-port},
-     * {@code --pac}, {@code --logfile}, {@code --noproxy}) is rejected by the parser rather than
-     * silently ignored, and reported to the build log by {@link #applyOptions}.
-     */
-    public static Options tunnelOptions() {
-        Options options = new Options();
-        options.addOption("d", "debug", false, "Enables debug messages");
-        options.addOption(Option.builder("i").longOpt("tunnel-identifier").hasArg().argName("id")
-                .desc("Add an identifier to this tunnel connection.").build());
-        options.addOption(Option.builder("Y").longOpt("proxy").hasArg().argName("PROXYHOST:PROXYPORT")
-                .desc("Specify an upstream proxy.").build());
-        options.addOption(Option.builder("z").longOpt("proxy-userpwd").hasArg().argName("user:pwd")
-                .desc("Username and password required to access the proxy configured with --proxy.").build());
-        options.addOption(Option.builder().longOpt("metrics-port").hasArg()
-                .desc("Use the specified port to access metrics. Default port 8003").build());
-        options.addOption(Option.builder("a").longOpt("auth").hasArgs().argName("host:port:user:passwd")
-                .desc("Performs Basic Authentication for specific hosts.").build());
-        return options;
     }
 
     /**
@@ -88,45 +58,75 @@ public final class TunnelManager {
     }
 
     /**
-     * Parses {@code rawOptions} against the supported allow-list and applies each option to the
-     * {@link App}. Unrecognized or unparseable input (including options the embedded tunnel cannot
-     * apply) is reported to the build log and ignored rather than failing the build.
+     * Parses {@code rawOptions} and applies the subset of tunnel options that the embedded
+     * {@link App} supports: {@code --debug}, {@code --tunnel-identifier}, {@code --proxy},
+     * {@code --proxy-userpwd}, {@code --metrics-port} and {@code --auth}. Any other option is not
+     * silently ignored — it is reported to the build log.
+     *
+     * <p>Parsing is done by hand rather than via commons-cli because the TestingBot tunnel jar
+     * bundles its own (older) copy of commons-cli, which shadows the plugin's and breaks the
+     * modern parser API at runtime.</p>
      */
     static void applyOptions(App app, String rawOptions, TaskListener listener) {
         String trimmed = rawOptions == null ? "" : rawOptions.trim();
         if (trimmed.isEmpty()) {
             return;
         }
-        try {
-            CommandLine cmd = new DefaultParser().parse(tunnelOptions(), tokenize(trimmed));
-            if (cmd.hasOption("debug")) {
-                app.setDebugMode(true);
+        String[] tokens = tokenize(trimmed);
+        List<String> unsupported = new ArrayList<>();
+        for (int i = 0; i < tokens.length; i++) {
+            String token = tokens[i];
+            switch (token) {
+                case "-d":
+                case "--debug":
+                    app.setDebugMode(true);
+                    break;
+                case "-i":
+                case "--tunnel-identifier":
+                    if (hasValue(tokens, i)) {
+                        app.setTunnelIdentifier(tokens[++i]);
+                    }
+                    break;
+                case "-Y":
+                case "--proxy":
+                    if (hasValue(tokens, i)) {
+                        app.setProxy(tokens[++i]);
+                    }
+                    break;
+                case "-z":
+                case "--proxy-userpwd":
+                    if (hasValue(tokens, i)) {
+                        app.setProxyAuth(tokens[++i]);
+                    }
+                    break;
+                case "--metrics-port":
+                    if (hasValue(tokens, i)) {
+                        String value = tokens[++i];
+                        try {
+                            app.setMetricsPort(Integer.parseInt(value));
+                        } catch (NumberFormatException nfe) {
+                            unsupported.add(token + " " + value);
+                        }
+                    }
+                    break;
+                case "-a":
+                case "--auth":
+                    if (hasValue(tokens, i)) {
+                        app.setBasicAuth(new String[]{tokens[++i]});
+                    }
+                    break;
+                default:
+                    unsupported.add(token);
             }
-            if (cmd.hasOption("tunnel-identifier")) {
-                app.setTunnelIdentifier(cmd.getOptionValue("tunnel-identifier"));
-            }
-            if (cmd.hasOption("proxy")) {
-                app.setProxy(cmd.getOptionValue("proxy"));
-            }
-            if (cmd.hasOption("proxy-userpwd")) {
-                app.setProxyAuth(cmd.getOptionValue("proxy-userpwd"));
-            }
-            if (cmd.hasOption("metrics-port")) {
-                try {
-                    app.setMetricsPort(Integer.parseInt(cmd.getOptionValue("metrics-port")));
-                } catch (NumberFormatException nfe) {
-                    listener.getLogger().println("[TestingBot] Ignoring invalid --metrics-port value: "
-                            + cmd.getOptionValue("metrics-port"));
-                }
-            }
-            if (cmd.hasOption("auth")) {
-                app.setBasicAuth(cmd.getOptionValues("auth"));
-            }
-        } catch (ParseException e) {
-            listener.getLogger().println("[TestingBot] Could not parse tunnel options ('" + trimmed
-                    + "'): " + e.getMessage() + " - starting tunnel with defaults.");
-            LOGGER.log(Level.WARNING, "Failed to parse TestingBot tunnel options", e);
         }
+        if (!unsupported.isEmpty()) {
+            listener.getLogger().println("[TestingBot] Ignoring unsupported tunnel option(s): "
+                    + String.join(" ", unsupported));
+        }
+    }
+
+    private static boolean hasValue(String[] tokens, int index) {
+        return index + 1 < tokens.length && !tokens[index + 1].startsWith("-");
     }
 
     /**
