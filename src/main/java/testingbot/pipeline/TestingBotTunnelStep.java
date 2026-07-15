@@ -105,7 +105,7 @@ public class TestingBotTunnelStep extends AbstractStepImpl {
         @POST
         public ListBoxModel doFillCredentialsIdItems(final @AncestorInPath Item context) {
             if (context == null ? !Jenkins.get().hasPermission(Jenkins.ADMINISTER)
-                    : !context.hasPermission(Item.EXTENDED_READ)) {
+                    : !context.hasPermission(Item.CONFIGURE)) {
                 return new StandardListBoxModel();
             }
             return new StandardListBoxModel()
@@ -137,7 +137,17 @@ public class TestingBotTunnelStep extends AbstractStepImpl {
         @Override
         public Void call() throws Exception {
             App app = new App();
-            TunnelManager.start(app, key, secret, tunnelOptions, tunnelIdentifier, listener);
+            try {
+                TunnelManager.start(app, key, secret, tunnelOptions, tunnelIdentifier, listener);
+            } catch (Exception e) {
+                // Startup failed after the App was created; stop it so we don't leak a half-booted tunnel.
+                try {
+                    app.stop();
+                } catch (Exception ignored) {
+                    // best effort
+                }
+                throw e;
+            }
             RUNNING_TUNNELS.put(tunnelIdentifier, app);
             return null;
         }
@@ -218,11 +228,22 @@ public class TestingBotTunnelStep extends AbstractStepImpl {
 
             computer.getChannel().call(new TbStartTunnelHandler(key, secret, options, tunnelIdentifier, listener));
 
-            body = getContext().newBodyInvoker()
-                    .withContext(EnvironmentExpander.merge(getContext().get(EnvironmentExpander.class), new ExpanderImpl(env)))
-                    .withCallback(new Callback(tunnelIdentifier))
-                    .withDisplayName("TestingBot Tunnel")
-                    .start();
+            try {
+                body = getContext().newBodyInvoker()
+                        .withContext(EnvironmentExpander.merge(getContext().get(EnvironmentExpander.class), new ExpanderImpl(env)))
+                        .withCallback(new Callback(tunnelIdentifier))
+                        .withDisplayName("TestingBot Tunnel")
+                        .start();
+            } catch (Exception e) {
+                // The tunnel started but the body could not be invoked; stop it now, otherwise the
+                // Callback that would normally stop it never runs and the tunnel leaks.
+                try {
+                    computer.getChannel().call(new TbStopTunnelHandler(tunnelIdentifier, listener));
+                } catch (Exception ignored) {
+                    // best effort
+                }
+                throw e;
+            }
 
             return false;
         }

@@ -71,14 +71,17 @@ This will start the tunnel before your job runs. Once the job finishes, the tunn
 
 ### Environment variables
 
-Inside a `testingbot { }` or `testingbotTunnel { }` block the following environment variables are available to your tests:
+Inside **both** `testingbot { }` and `testingbotTunnel { }` blocks:
 
 * `TESTINGBOT_KEY` / `TB_KEY` – your TestingBot API key
 * `TESTINGBOT_SECRET` / `TB_SECRET` – your TestingBot API secret (masked in the build log)
+
+Inside a `testingbotTunnel { }` block only (these describe the tunnel started for that block):
+
 * `SELENIUM_HOST` / `SELENIUM_PORT` – host and port to point your Selenium client at when using the tunnel
 * `TESTINGBOT_TUNNEL_IDENTIFIER` – the identifier of the tunnel started for this block. Pass it in your desired capabilities so parallel builds each use their own tunnel.
 
-Each `testingbotTunnel { }` block now starts an isolated tunnel with its own identifier, so parallel pipeline branches no longer interfere with one another.
+Each `testingbotTunnel { }` block starts an isolated tunnel with its own identifier, so parallel pipeline branches no longer interfere with one another.
 
 An example:
 

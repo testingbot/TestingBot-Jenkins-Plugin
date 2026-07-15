@@ -11,6 +11,6 @@ permissions:
 
 jobs:
   maven-cd:
-    uses: jenkins-infra/github-reusable-workflows/.github/workflows/maven-cd.yml@v1
+    uses: jenkins-infra/github-reusable-workflows/.github/workflows/maven-cd.yml@7704ec4236e99ca271bdef1adb675b65b8e283a9 # v1
     secrets:
       MAVEN_TOKEN: ${{ secrets.MAVEN_TOKEN }}

@@ -122,7 +122,7 @@ public class TestingBotStep extends AbstractStepImpl {
         @SuppressWarnings("unused")
         public ListBoxModel doFillCredentialsIdItems(final @AncestorInPath Item context) {
             if (context == null ? !Jenkins.get().hasPermission(Jenkins.ADMINISTER)
-                    : !context.hasPermission(Item.EXTENDED_READ)) {
+                    : !context.hasPermission(Item.CONFIGURE)) {
                 return new StandardListBoxModel();
             }
             return new StandardListBoxModel().withMatching(
