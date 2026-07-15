@@ -1,5 +1,6 @@
 package testingbot;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.testingbot.tunnel.Api;
 import com.testingbot.tunnel.App;
 import hudson.model.TaskListener;
@@ -9,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import net.sf.json.JSONObject;
 
 /**
  * Shared TestingBot Tunnel lifecycle helper used by both the freestyle
@@ -149,8 +149,9 @@ public final class TunnelManager {
         long deadline = System.currentTimeMillis() + READY_TIMEOUT_MS;
         while (true) {
             // Let polling failures propagate: startup must never report success after an error.
-            JSONObject response = api.pollTunnel(tunnelID);
-            if ("READY".equals(response.getString("state"))) {
+            JsonNode response = api.pollTunnel(tunnelID);
+            JsonNode state = response.get("state");
+            if (state != null && "READY".equals(state.asText())) {
                 return;
             }
             if (System.currentTimeMillis() >= deadline) {

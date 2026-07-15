@@ -84,8 +84,23 @@
         <dependency>
             <groupId>com.testingbot</groupId>
             <artifactId>TestingBotTunnel</artifactId>
-            <version>4.3</version>
+            <version>4.8</version>
             <scope>compile</scope>
+            <!--
+              Use the self-contained "shaded" classifier and exclude all transitive dependencies.
+              The tunnel embeds its own server stack (Jetty 11, Jackson, Apache HTTP, commons-cli),
+              which conflicts with the versions Jenkins manages (e.g. Jetty 12, Jackson 2.22). Those
+              libraries are only used internally by the tunnel at runtime, where the plugin classloader
+              keeps them isolated from Jenkins core, so we consume the bundled jar rather than leak an
+              unreconcilable transitive tree into the plugin build.
+            -->
+            <classifier>shaded</classifier>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.testingbot</groupId>
