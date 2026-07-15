@@ -3,10 +3,9 @@ package testingbot;
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
-import com.google.common.base.Strings;
-import com.testingbot.tunnel.Api;
 import hudson.Extension;
 import hudson.Launcher;
+import hudson.Util;
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
 import hudson.model.Descriptor;
@@ -30,9 +29,10 @@ import java.util.Map;
 import hudson.util.ListBoxModel;
 import java.util.ArrayList;
 import jenkins.model.Jenkins;
-import net.sf.json.JSONObject;
+import org.jenkinsci.Symbol;
+import org.kohsuke.stapler.verb.POST;
 
-import javax.annotation.Nullable;
+import edu.umd.cs.findbugs.annotations.Nullable;
 
 public final class TestingBotBuildWrapper extends BuildWrapper {
 
@@ -68,45 +68,17 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
           build.addAction(action);
         }
 
-        if (this.enableSSH == true) {
-            String apiKey = null;
-            String apiSecret = null;
+        if (this.enableSSH) {
+            if (credentials == null) {
+                listener.getLogger().println("No TestingBot key/secret found while trying to start a TestingBot Tunnel");
+                return new TestingBotBuildEnvironment(null, null);
+            }
 
             final App app = new App();
             try {
-                if (credentials != null) {
-                    apiKey = credentials.getKey();
-                    apiSecret = credentials.getDecryptedSecret();
-                }
-            } catch (Exception e) {
-            }
-
-            if (apiKey == null) {
-                listener.getLogger().println("No TestingBot key/secret found while trying to start a TestingBot Tunnel");
-                return new TestingBotBuildEnvironment(credentials, app);
-            }
-
-            listener.getLogger().println("Starting TestingBot Tunnel");
-            app.setClientKey(apiKey);
-            app.setClientSecret(apiSecret);
-            try {
-                app.boot();
-                Api api = app.getApi();
-                JSONObject response;
-                boolean ready = false;
-                String tunnelID = Integer.toString(app.getTunnelID());
-                while (!ready) {
-                    try {
-                        response = api.pollTunnel(tunnelID);
-                        ready = response.getString("state").equals("READY");
-                    } catch (Exception ex) {
-                        Logger.getLogger(TestingBotBuildWrapper.class.getName()).log(Level.SEVERE, null, ex);
-                        break;
-                    }
-                    Thread.sleep(3000);
-                }
+                TunnelManager.start(app, credentials.getKey(), credentials.getDecryptedSecret(), "", null, listener);
             } catch (Exception ex) {
-                Logger.getLogger(TestingBotBuildWrapper.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(TestingBotBuildWrapper.class.getName()).log(Level.SEVERE, "Failed to start TestingBot tunnel", ex);
             }
             return new TestingBotBuildEnvironment(credentials, app);
         }
@@ -129,13 +101,15 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
     }
 
     @Extension
+    @Symbol("testingbot")
     public static class DescriptorImpl extends Descriptor<BuildWrapper> {
 
         @Override
         public String getDisplayName() {
             return "TestingBot";
         }
-        
+
+        @POST
         public ListBoxModel doFillCredentialsIdItems(@AncestorInPath final Item context) {
             if (context != null && !context.hasPermission(Item.CONFIGURE)) {
                 return new StandardListBoxModel();
@@ -143,7 +117,7 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
 
             return new StandardListBoxModel().withMatching(
                   CredentialsMatchers.anyOf(CredentialsMatchers.instanceOf(TestingBotCredentials.class)),
-                  CredentialsProvider.lookupCredentials(TestingBotCredentials.class, context, ACL.SYSTEM,
+                  CredentialsProvider.lookupCredentialsInItem(TestingBotCredentials.class, context, ACL.SYSTEM2,
                       new ArrayList<>()));
         }
     }
@@ -161,10 +135,7 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
         @Override
         public void buildEnvVars(Map<String, String> env) {
             if (credentials != null) {
-                env.put(TESTINGBOT_KEY, credentials.getKey());
-                env.put(TB_KEY, credentials.getKey());
-                env.put(TESTINGBOT_SECRET, credentials.getDecryptedSecret());
-                env.put(TB_SECRET, credentials.getDecryptedSecret());
+                TunnelManager.populateCredentialEnv(env, credentials);
             }
 
             if (app != null) {
@@ -176,10 +147,7 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
 
         @Override
         public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException, InterruptedException {
-            if (app != null) {
-                listener.getLogger().println("Closing TestingBot Tunnel");
-                app.stop();
-            }
+            TunnelManager.stop(app, listener);
             return true;
         }
     }
@@ -187,7 +155,7 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
     protected boolean migrateCredentials(AbstractProject project) {
         Logger.getLogger(TestingBotBuildWrapper.class.getName()).log(Level.INFO, "TestingBot Plugin: migrateCredentials: " + this.credentialsId);
             
-        if (Strings.isNullOrEmpty(this.credentialsId)) {
+        if (Util.fixEmpty(this.credentialsId) == null) {
             try {
                 TestingBotCredentials.migrate();
                 return true;
@@ -201,9 +169,7 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
 
     static BuildWrapperItem<TestingBotBuildWrapper> findBuildWrapper(
             final Job<?, ?> job) {
-        BuildWrapperItem<TestingBotBuildWrapper> wrapperItem
-                = findItemWithBuildWrapper(job, TestingBotBuildWrapper.class);
-        return (wrapperItem != null) ? wrapperItem : null;
+        return findItemWithBuildWrapper(job, TestingBotBuildWrapper.class);
     }
 
     private static <T extends BuildWrapper> BuildWrapperItem<T> findItemWithBuildWrapper(
@@ -243,7 +209,7 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
     @Extension
     static final public class ItemListenerImpl extends ItemListener {
         public void onLoaded() {
-            Jenkins instance = Jenkins.getInstance();
+            Jenkins instance = Jenkins.getInstanceOrNull();
             if (instance == null) { return; }
             for (BuildableItemWithBuildWrappers item : instance.getItems(BuildableItemWithBuildWrappers.class))
             {

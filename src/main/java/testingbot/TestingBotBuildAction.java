@@ -1,13 +1,12 @@
 package testingbot;
 
-import hudson.model.Action;
+import hudson.model.InvisibleAction;
 
-public class TestingBotBuildAction implements Action {
+public class TestingBotBuildAction extends InvisibleAction {
 
     private TestingBotCredentials testingbotCredential;
 
     public TestingBotBuildAction(TestingBotCredentials testingbotCredentials) {
-        super();
         this.testingbotCredential = testingbotCredentials;
     }
 
@@ -17,23 +16,5 @@ public class TestingBotBuildAction implements Action {
 
     public void setCredentials(TestingBotCredentials testingbotCredential) {
         this.testingbotCredential = testingbotCredential;
-    }
-
-    @Override
-    public String getIconFileName() {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public String getDisplayName() {
-        // TODO Auto-generated method stub
-        return "tb";
-    }
-
-    @Override
-    public String getUrlName() {
-        // TODO Auto-generated method stub
-        return "tb";
     }
 }

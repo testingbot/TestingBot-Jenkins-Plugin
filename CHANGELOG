@@ -1,3 +1,16 @@
+Version 1.23
+2026-07-15
+
+- Raise baseline to Jenkins 2.541.3 / Java 17, modern parent POM and plugin BOM
+- Fix per-build tunnel isolation: parallel pipeline tunnels no longer corrupt or stop each other
+- Mask the TestingBot secret in build console logs
+- Fix crashes in the build summary listener on non-TestingBot / mixed test suites
+- Honor tunnel options and expose SELENIUM_HOST/PORT and TESTINGBOT_TUNNEL_IDENTIFIER env vars
+- Add permission checks and POST to credential form endpoints
+- Replace deprecated APIs (ACL.SYSTEM2, lookupCredentialsInItem, commons-cli, Guava)
+- Remove dead code (vestigial build step, unused tunnel config)
+- Add GitHub Actions CI/CD (JEP-229) and Dependabot
+
 Version 1.17
 2022-04-01
 

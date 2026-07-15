@@ -15,7 +15,6 @@ import org.kohsuke.stapler.export.ExportedBean;
 
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
-import com.cloudbees.plugins.credentials.common.StandardUsernameListBoxModel;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.google.inject.Inject;
 import hudson.Extension;
@@ -25,18 +24,17 @@ import hudson.model.Job;
 import hudson.model.Run;
 import hudson.model.TopLevelItem;
 import hudson.security.ACL;
+import jenkins.model.Jenkins;
+import org.kohsuke.stapler.verb.POST;
 import java.util.ArrayList;
 
-import javax.annotation.Nonnull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Set;
 import testingbot.TestingBotBuildAction;
-import static testingbot.TestingBotBuildWrapper.TB_KEY;
-import static testingbot.TestingBotBuildWrapper.TB_SECRET;
-import static testingbot.TestingBotBuildWrapper.TESTINGBOT_KEY;
-import static testingbot.TestingBotBuildWrapper.TESTINGBOT_SECRET;
 import testingbot.TestingBotCredentials;
+import testingbot.TunnelManager;
 
 @ExportedBean
 public class TestingBotStep extends AbstractStepImpl {
@@ -74,10 +72,7 @@ public class TestingBotStep extends AbstractStepImpl {
 
 
             HashMap<String,String> env = new HashMap<String,String>();
-            env.put(TESTINGBOT_KEY, credentials.getKey());
-            env.put(TB_KEY, credentials.getKey());
-            env.put(TESTINGBOT_SECRET, credentials.getDecryptedSecret());
-            env.put(TB_SECRET, credentials.getDecryptedSecret());
+            TunnelManager.populateCredentialEnv(env, credentials);
             TestingBotBuildAction buildAction = run.getAction(TestingBotBuildAction.class);
             if (buildAction == null) {
                 buildAction = new TestingBotBuildAction(credentials);
@@ -92,7 +87,7 @@ public class TestingBotStep extends AbstractStepImpl {
             return false;
         }
 
-        @Override public void stop(@Nonnull Throwable cause) throws Exception {
+        @Override public void stop(@NonNull Throwable cause) throws Exception {
             // should be no need to do anything special (but verify in JENKINS-26148)
             if (body!=null) {
                 body.cancel(cause);
@@ -123,11 +118,16 @@ public class TestingBotStep extends AbstractStepImpl {
             return Collections.<Class<?>>singleton(TestingBotCredentials.class);
         }
 
+        @POST
         @SuppressWarnings("unused")
         public ListBoxModel doFillCredentialsIdItems(final @AncestorInPath Item context) {
+            if (context == null ? !Jenkins.get().hasPermission(Jenkins.ADMINISTER)
+                    : !context.hasPermission(Item.EXTENDED_READ)) {
+                return new StandardListBoxModel();
+            }
             return new StandardListBoxModel().withMatching(
                   CredentialsMatchers.anyOf(CredentialsMatchers.instanceOf(TestingBotCredentials.class)),
-                  CredentialsProvider.lookupCredentials(TestingBotCredentials.class, context, ACL.SYSTEM,
+                  CredentialsProvider.lookupCredentialsInItem(TestingBotCredentials.class, context, ACL.SYSTEM2,
                       new ArrayList<DomainRequirement>()));
         }
 

@@ -20,7 +20,7 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.tasks.junit.TestResultAction;
 import java.util.logging.Logger;
-import javax.annotation.Nonnull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import testingbot.TestingBotBuildWrapper.BuildWrapperItem;
 
 /**
@@ -42,7 +42,7 @@ public class TestReporter extends TestDataPublisher {
     }
 
     @Override
-    public TestResultAction.Data contributeTestData(Run<?, ?> run, @Nonnull FilePath workspace, Launcher launcher, TaskListener listener, TestResult testResult) throws IOException, InterruptedException {
+    public TestResultAction.Data contributeTestData(Run<?, ?> run, @NonNull FilePath workspace, Launcher launcher, TaskListener listener, TestResult testResult) throws IOException, InterruptedException {
         boolean foundSession = false;
         List<String> sessionIDs = null;
         TestingBotCredentials credentials = null;

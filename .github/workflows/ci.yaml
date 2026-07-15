@@ -1,0 +1,26 @@
+name: ci
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        jdk: [17, 21]
+    runs-on: ubuntu-latest
+    name: build (JDK ${{ matrix.jdk }})
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK ${{ matrix.jdk }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.jdk }}
+          cache: maven
+      - name: Build and test
+        run: mvn -B -ntp verify
