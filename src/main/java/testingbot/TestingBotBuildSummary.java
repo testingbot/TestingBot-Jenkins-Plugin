@@ -64,10 +64,11 @@ public class TestingBotBuildSummary extends InvisibleAction implements Serializa
             if (testResultAction == null) {
                 return;
             }
-            TestResult testResult = (TestResult) testResultAction.getResult();
-            if (testResult == null) {
+            Object result = testResultAction.getResult();
+            if (!(result instanceof TestResult)) {
                 return;
             }
+            TestResult testResult = (TestResult) result;
 
             TestingbotREST apiClient = new TestingbotREST(credentials.getKey(), credentials.getDecryptedSecret());
             List<TestingBotBuildObject> ids = new ArrayList<>();

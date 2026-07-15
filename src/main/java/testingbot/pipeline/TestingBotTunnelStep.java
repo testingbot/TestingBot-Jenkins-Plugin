@@ -8,6 +8,7 @@ import com.testingbot.tunnel.App;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.Extension;
+import hudson.console.ConsoleLogFilter;
 import hudson.model.Computer;
 import hudson.model.Item;
 import hudson.model.Job;
@@ -28,6 +29,7 @@ import org.jenkinsci.plugins.workflow.steps.AbstractStepExecutionImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
 import org.jenkinsci.plugins.workflow.steps.BodyExecution;
 import org.jenkinsci.plugins.workflow.steps.BodyExecutionCallback;
+import org.jenkinsci.plugins.workflow.steps.BodyInvoker;
 import org.jenkinsci.plugins.workflow.steps.EnvironmentExpander;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
@@ -231,6 +233,7 @@ public class TestingBotTunnelStep extends AbstractStepImpl {
             try {
                 body = getContext().newBodyInvoker()
                         .withContext(EnvironmentExpander.merge(getContext().get(EnvironmentExpander.class), new ExpanderImpl(env)))
+                        .withContext(BodyInvoker.mergeConsoleLogFilters(getContext().get(ConsoleLogFilter.class), new SecretMaskingConsoleLogFilter(secret)))
                         .withCallback(new Callback(tunnelIdentifier))
                         .withDisplayName("TestingBot Tunnel")
                         .start();

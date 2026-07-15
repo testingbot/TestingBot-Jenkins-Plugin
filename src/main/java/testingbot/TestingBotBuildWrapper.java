@@ -77,8 +77,13 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
             final App app = new App();
             try {
                 TunnelManager.start(app, credentials.getKey(), credentials.getDecryptedSecret(), "", null, listener);
+            } catch (InterruptedException ie) {
+                TunnelManager.stop(app, listener);
+                throw ie;
             } catch (Exception ex) {
-                Logger.getLogger(TestingBotBuildWrapper.class.getName()).log(Level.SEVERE, "Failed to start TestingBot tunnel", ex);
+                // Do not continue the build with a broken tunnel: clean up and fail.
+                TunnelManager.stop(app, listener);
+                throw new IOException("Failed to start TestingBot tunnel", ex);
             }
             return new TestingBotBuildEnvironment(credentials, app);
         }
