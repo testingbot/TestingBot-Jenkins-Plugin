@@ -41,13 +41,30 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
     public static final String TESTINGBOT_SECRET = "TESTINGBOT_SECRET";
     public static final String TB_SECRET = "TB_SECRET";
     public static final String TESTINGBOT_TUNNEL = "TESTINGBOT_TUNNEL";
-    private boolean enableSSH;
+    private boolean useTunnel;
     private String credentialsId;
 
+    /**
+     * Legacy name of {@link #useTunnel}. Retained (nullable) so job configs saved by older versions,
+     * which persisted this flag as {@code <enableSSH>}, still load; migrated in {@link #readResolve()}.
+     *
+     * @deprecated use {@link #useTunnel}
+     */
+    @Deprecated
+    private Boolean enableSSH;
+
     @DataBoundConstructor
-    public TestingBotBuildWrapper(String credentialsId, boolean enableSSH) {
+    public TestingBotBuildWrapper(String credentialsId, boolean useTunnel) {
         this.credentialsId = credentialsId;
-        this.enableSSH = enableSSH;
+        this.useTunnel = useTunnel;
+    }
+
+    protected Object readResolve() {
+        if (enableSSH != null) {
+            useTunnel = enableSSH;
+            enableSSH = null;
+        }
+        return this;
     }
 
     public String getCredentialsId() {
@@ -68,7 +85,7 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
           build.addAction(action);
         }
 
-        if (this.enableSSH) {
+        if (this.useTunnel) {
             if (credentials == null) {
                 listener.getLogger().println("No TestingBot key/secret found while trying to start a TestingBot Tunnel");
                 return new TestingBotBuildEnvironment(null, null);
@@ -92,17 +109,17 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
     }
 
     /**
-     * @return the enableSSH
+     * @return whether the TestingBot Tunnel should be started around the build
      */
-    public boolean isEnableSSH() {
-        return enableSSH;
+    public boolean isUseTunnel() {
+        return useTunnel;
     }
 
     /**
-     * @param enableSSH the enableSSH to set
+     * @param useTunnel whether the TestingBot Tunnel should be started around the build
      */
-    public void setEnableSSH(boolean enableSSH) {
-        this.enableSSH = enableSSH;
+    public void setUseTunnel(boolean useTunnel) {
+        this.useTunnel = useTunnel;
     }
 
     @Extension

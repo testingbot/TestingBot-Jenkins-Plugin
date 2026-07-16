@@ -230,8 +230,14 @@ public class TestingBotTunnelStep extends Step {
             HashMap<String, String> env = new HashMap<>();
             TunnelManager.populateCredentialEnv(env, tbCredentials);
             env.put(TESTINGBOT_TUNNEL_IDENTIFIER, tunnelIdentifier);
-            env.put("SELENIUM_HOST", "localhost");
-            env.put("SELENIUM_PORT", Integer.toString(defaultSeleniumPort()));
+            String hubHost = "localhost";
+            String hubPort = Integer.toString(defaultSeleniumPort());
+            // Generic host/port to point a Selenium or Appium client at the tunnel.
+            env.put("HUB_HOST", hubHost);
+            env.put("HUB_PORT", hubPort);
+            // Selenium-specific aliases, kept for backwards compatibility.
+            env.put("SELENIUM_HOST", hubHost);
+            env.put("SELENIUM_PORT", hubPort);
 
             computer.getChannel().call(new TbStartTunnelHandler(key, secret, options, tunnelIdentifier, listener));
 

@@ -78,7 +78,8 @@ Inside **both** `testingbot { }` and `testingbotTunnel { }` blocks:
 
 Inside a `testingbotTunnel { }` block only (these describe the tunnel started for that block):
 
-* `SELENIUM_HOST` / `SELENIUM_PORT` – host and port to point your Selenium client at when using the tunnel
+* `HUB_HOST` / `HUB_PORT` – host and port to point your Selenium or Appium client at when using the tunnel
+* `SELENIUM_HOST` / `SELENIUM_PORT` – Selenium-specific aliases of `HUB_HOST`/`HUB_PORT`, kept for backwards compatibility
 * `TESTINGBOT_TUNNEL_IDENTIFIER` – the identifier of the tunnel started for this block. Pass it in your desired capabilities so parallel builds each use their own tunnel.
 
 Each `testingbotTunnel { }` block starts an isolated tunnel with its own identifier, so parallel pipeline branches no longer interfere with one another.
