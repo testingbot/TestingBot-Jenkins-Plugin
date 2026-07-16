@@ -5,11 +5,12 @@
             <st:include page="sidepanel.jelly" it="${it.run}" optional="true" />
         </l:side-panel>
         <l:main-panel>
-            <h1>${it.tbo.testName}</h1>
-            <a href="https://testingbot.com/tests/${it.tbo.sessionId}?auth=${it.tbo.authHash}&amp;ref=jenkins" target="_blank">View on TestingBot</a>
+            <j:set var="tbo" value="${request.getAttribute('tbo')}"/>
+            <h1>${tbo.testName}</h1>
+            <a href="https://testingbot.com/tests/${tbo.sessionId}?auth=${tbo.authHash}&amp;ref=jenkins" target="_blank">View on TestingBot</a>
             <l:ajax>
                 <div>
-                    <iframe src="https://testingbot.com/mini/?id=${it.tbo.sessionId}&amp;auth=${it.tbo.authHash}&amp;ref=jenkins" style="width: 100%; min-height: 100vh; border: none"></iframe>
+                    <iframe src="https://testingbot.com/mini/?id=${tbo.sessionId}&amp;auth=${tbo.authHash}&amp;ref=jenkins" style="width: 100%; min-height: 100vh; border: none"></iframe>
                 </div>
             </l:ajax>
         </l:main-panel>

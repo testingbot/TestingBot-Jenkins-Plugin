@@ -11,7 +11,6 @@ public class TestingBotBuildObject implements Serializable {
     private String testName;
     private final boolean isPassed;
     private String authHash;
-    private TestingbotTest test;
     private String environmentName;
 
     public TestingBotBuildObject(String sessionId, String className, String testName, boolean isPassed, String authHash, TestingbotTest test) {
@@ -20,7 +19,8 @@ public class TestingBotBuildObject implements Serializable {
       this.testName = testName;
       this.isPassed = isPassed;
       this.authHash = authHash;
-      this.test = test;
+      // TestingbotTest is only used here to derive the environment label; it is not stored (it is not
+      // marshalable under the JEP-200 class filter, and nothing reads it afterwards).
       this.environmentName = test == null ? "" : test.getBrowser() + " | " + test.getOs();
     }
 
@@ -79,20 +79,6 @@ public class TestingBotBuildObject implements Serializable {
      */
     public boolean getIsPassed() {
         return isPassed;
-    }
-
-    /**
-     * @return the test
-     */
-    public TestingbotTest getTest() {
-        return test;
-    }
-
-    /**
-     * @param test the test to set
-     */
-    public void setTest(TestingbotTest test) {
-        this.test = test;
     }
 
     /**
