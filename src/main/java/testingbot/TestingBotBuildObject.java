@@ -21,7 +21,7 @@ public class TestingBotBuildObject implements Serializable {
       this.isPassed = isPassed;
       this.authHash = authHash;
       this.test = test;
-      this.environmentName = test.getBrowser() + " | " + test.getOs();
+      this.environmentName = test == null ? "" : test.getBrowser() + " | " + test.getOs();
     }
 
     /**

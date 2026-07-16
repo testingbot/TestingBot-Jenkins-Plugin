@@ -74,6 +74,7 @@ public final class TunnelManager {
         }
         String[] tokens = tokenize(trimmed);
         List<String> ignored = new ArrayList<>();
+        List<String> auth = new ArrayList<>();
         for (int i = 0; i < tokens.length; i++) {
             String token = tokens[i];
             switch (token) {
@@ -120,7 +121,7 @@ public final class TunnelManager {
                 case "-a":
                 case "--auth":
                     if (hasValue(tokens, i)) {
-                        app.setBasicAuth(new String[]{tokens[++i]});
+                        auth.add(tokens[++i]);
                     } else {
                         ignored.add(token + " (missing value)");
                     }
@@ -128,6 +129,10 @@ public final class TunnelManager {
                 default:
                     ignored.add(token);
             }
+        }
+        if (!auth.isEmpty()) {
+            // --auth may be repeated for multiple hosts; apply them all at once.
+            app.setBasicAuth(auth.toArray(new String[0]));
         }
         if (!ignored.isEmpty()) {
             listener.getLogger().println("[TestingBot] Ignoring invalid or unsupported tunnel option(s): "
@@ -137,6 +142,23 @@ public final class TunnelManager {
 
     private static boolean hasValue(String[] tokens, int index) {
         return index + 1 < tokens.length && !tokens[index + 1].startsWith("-");
+    }
+
+    /**
+     * Returns the value of a user-supplied {@code --tunnel-identifier} / {@code -i} option, or
+     * {@code null} if the options don't specify one.
+     */
+    public static String extractTunnelIdentifier(String rawOptions) {
+        if (rawOptions == null) {
+            return null;
+        }
+        String[] tokens = tokenize(rawOptions.trim());
+        for (int i = 0; i < tokens.length; i++) {
+            if (("-i".equals(tokens[i]) || "--tunnel-identifier".equals(tokens[i])) && hasValue(tokens, i)) {
+                return tokens[i + 1];
+            }
+        }
+        return null;
     }
 
     /**

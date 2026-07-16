@@ -14,7 +14,7 @@ This Jenkins plugin integrates TestingBot.com features inside Jenkins.
 
 ## Prerequisites
 
-* Minimum supported Jenkins version is 2.338
+* Minimum supported Jenkins version is 2.541.3 (the plugin builds and runs on Java 17+)
 * A TestingBot account
 
 ## Setting up the plugin

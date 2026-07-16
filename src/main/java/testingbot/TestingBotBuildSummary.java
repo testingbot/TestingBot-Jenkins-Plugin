@@ -15,6 +15,8 @@ import hudson.tasks.test.AbstractTestResultAction;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class TestingBotBuildSummary extends InvisibleAction implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -79,9 +81,16 @@ public class TestingBotBuildSummary extends InvisibleAction implements Serializa
                         continue;
                     }
                     String sessionId = sessionIds.get(0);
-                    TestingbotTest test = apiClient.getTest(sessionId);
-                    TestingBotBuildObject tbo = new TestingBotBuildObject(sessionId, cr.getClassName(), cr.getName(), cr.isPassed(), apiClient.getAuthenticationHash(sessionId), test);
-                    ids.add(tbo);
+                    try {
+                        TestingbotTest test = apiClient.getTest(sessionId);
+                        TestingBotBuildObject tbo = new TestingBotBuildObject(sessionId, cr.getClassName(), cr.getName(), cr.isPassed(), apiClient.getAuthenticationHash(sessionId), test);
+                        ids.add(tbo);
+                    } catch (RuntimeException e) {
+                        // A single bad session id (typo, wrong account, expired/purged session) must not
+                        // drop the report for the other valid sessions in this build.
+                        Logger.getLogger(TestingBotBuildSummary.class.getName())
+                                .log(Level.FINE, "Skipping TestingBot session " + sessionId, e);
+                    }
                 }
             }
             if (ids.isEmpty()) {

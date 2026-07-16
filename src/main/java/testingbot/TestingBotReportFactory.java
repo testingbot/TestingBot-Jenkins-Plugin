@@ -54,7 +54,8 @@ public class TestingBotReportFactory extends Data {
                 return Collections.singletonList(new TestingBotReport(credentials, cr, ids));
             }
         }
-        logger.log(Level.WARNING, "Empty list for TB sessions");
+        // Fires for the majority of test-tree nodes (any case without a TestingBotSessionID); keep it quiet.
+        logger.log(Level.FINE, "No TestingBot sessions for this test object");
         return Collections.emptyList();
     }
     
