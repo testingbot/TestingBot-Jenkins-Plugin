@@ -85,10 +85,14 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
           build.addAction(action);
         }
 
+        // Expose the build id and add the embeddable build-report page so all sessions using
+        // build=$TESTINGBOT_BUILD are grouped and viewable inside Jenkins.
+        final String buildId = credentials != null ? TestingBotBuildReportAction.attach(build, credentials) : null;
+
         if (this.useTunnel) {
             if (credentials == null) {
                 listener.getLogger().println("No TestingBot key/secret found while trying to start a TestingBot Tunnel");
-                return new TestingBotBuildEnvironment(null, null);
+                return new TestingBotBuildEnvironment(null, null, null);
             }
 
             final App app = new App();
@@ -102,10 +106,10 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
                 TunnelManager.stop(app, listener);
                 throw new IOException("Failed to start TestingBot tunnel", ex);
             }
-            return new TestingBotBuildEnvironment(credentials, app);
+            return new TestingBotBuildEnvironment(credentials, app, buildId);
         }
 
-        return new TestingBotBuildEnvironment(credentials, null);
+        return new TestingBotBuildEnvironment(credentials, null, buildId);
     }
 
     /**
@@ -149,16 +153,22 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
 
         private final App app;
         private final TestingBotCredentials credentials;
+        private final String buildId;
 
-        public TestingBotBuildEnvironment(TestingBotCredentials credentials, @Nullable App app) {
+        public TestingBotBuildEnvironment(TestingBotCredentials credentials, @Nullable App app, @Nullable String buildId) {
             this.credentials = credentials;
             this.app = app;
+            this.buildId = buildId;
         }
 
         @Override
         public void buildEnvVars(Map<String, String> env) {
             if (credentials != null) {
                 TunnelManager.populateCredentialEnv(env, credentials);
+            }
+
+            if (buildId != null) {
+                env.put(TestingBotBuildReportAction.TESTINGBOT_BUILD, buildId);
             }
 
             if (app != null) {

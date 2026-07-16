@@ -56,6 +56,12 @@ A full example that you can use is available on our GitHub [Jenkins-Demo](https:
 
 On the build page, each TestingBot session is shown with a preview thumbnail and expands in place to the full session media (video screencast, screenshots and logs) — no need to leave Jenkins. The embedded media loads lazily, so collapsed sessions stay lightweight.
 
+## Embedded TestingBot Build report
+
+Whenever the plugin injects credentials — through the freestyle **Build Environment** option or the `testingbot { }` / `testingbotTunnel { }` pipeline steps — it exposes a `TESTINGBOT_BUILD` environment variable and adds a **TestingBot Build** page to the build.
+
+Set your test's `build` desired capability to `$TESTINGBOT_BUILD` so all sessions from a single Jenkins build are grouped under one TestingBot build. The **TestingBot Build** link on the build page then embeds that build's TestingBot report (every session, with status and video) directly inside Jenkins, without leaving the CI UI.
+
 ## Pipeline
 The plugin offers pipeline support, which can be used with a Jenkinsfile.
 
@@ -77,6 +83,7 @@ Inside **both** `testingbot { }` and `testingbotTunnel { }` blocks:
 
 * `TESTINGBOT_KEY` / `TB_KEY` – your TestingBot API key
 * `TESTINGBOT_SECRET` / `TB_SECRET` – your TestingBot API secret (masked in the build log)
+* `TESTINGBOT_BUILD` – a per-build identifier. Pass its value as your test's `build` desired capability so all sessions from this Jenkins build are grouped together and shown on the build's embedded **TestingBot Build** page (see below).
 
 Inside a `testingbotTunnel { }` block only (these describe the tunnel started for that block):
 
