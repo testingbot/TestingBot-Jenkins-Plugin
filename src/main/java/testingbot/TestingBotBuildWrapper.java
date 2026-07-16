@@ -22,6 +22,8 @@ import hudson.model.AbstractProject;
 import hudson.model.BuildableItemWithBuildWrappers;
 import hudson.model.Job;
 import hudson.model.Item;
+import hudson.model.Computer;
+import hudson.model.Node;
 import hudson.model.listeners.ItemListener;
 import hudson.remoting.VirtualChannel;
 import hudson.security.ACL;
@@ -94,7 +96,7 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
         if (this.useTunnel) {
             if (credentials == null) {
                 listener.getLogger().println("No TestingBot key/secret found while trying to start a TestingBot Tunnel");
-                return new TestingBotBuildEnvironment(null, buildId, null, null, null);
+                return new TestingBotBuildEnvironment(null, buildId, null, null);
             }
 
             // Run the tunnel on the build's node (not the controller) so that a test connecting to
@@ -115,7 +117,7 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
                     TunnelManager.stopOnChannel(channel, tunnelIdentifier, listener);
                     throw new IOException("Failed to start TestingBot tunnel", ex);
                 }
-                return new TestingBotBuildEnvironment(credentials, buildId, tunnelIdentifier, channel, null);
+                return new TestingBotBuildEnvironment(credentials, buildId, tunnelIdentifier, null);
             }
 
             // No agent channel available (unusual launcher); fall back to a controller-local tunnel.
@@ -129,10 +131,10 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
                 TunnelManager.stop(app, listener);
                 throw new IOException("Failed to start TestingBot tunnel", ex);
             }
-            return new TestingBotBuildEnvironment(credentials, buildId, tunnelIdentifier, null, app);
+            return new TestingBotBuildEnvironment(credentials, buildId, tunnelIdentifier, app);
         }
 
-        return new TestingBotBuildEnvironment(credentials, buildId, null, null, null);
+        return new TestingBotBuildEnvironment(credentials, buildId, null, null);
     }
 
     /**
@@ -178,17 +180,14 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
         private final String buildId;
         /** Non-null when a tunnel was started for this build. */
         private final String tunnelIdentifier;
-        /** Agent channel the tunnel runs on; null when the tunnel runs controller-locally (see {@link #localApp}). */
-        private final VirtualChannel channel;
-        /** Controller-local tunnel handle, used only in the no-channel fallback. */
+        /** Controller-local tunnel handle, used only in the no-channel fallback (otherwise null → runs on the agent). */
         private final App localApp;
 
         public TestingBotBuildEnvironment(TestingBotCredentials credentials, @Nullable String buildId,
-                @Nullable String tunnelIdentifier, @Nullable VirtualChannel channel, @Nullable App localApp) {
+                @Nullable String tunnelIdentifier, @Nullable App localApp) {
             this.credentials = credentials;
             this.buildId = buildId;
             this.tunnelIdentifier = tunnelIdentifier;
-            this.channel = channel;
             this.localApp = localApp;
         }
 
@@ -212,15 +211,26 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
 
         @Override
         public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException, InterruptedException {
-            if (tunnelIdentifier != null) {
-                if (channel != null) {
-                    TunnelManager.stopOnChannel(channel, tunnelIdentifier, listener);
-                } else {
-                    TunnelManager.stop(localApp, listener);
-                }
+            if (tunnelIdentifier == null) {
+                return true;
+            }
+            if (localApp != null) {
+                // Controller-local fallback tunnel.
+                TunnelManager.stop(localApp, listener);
+            } else {
+                // Resolve the agent's live channel now rather than holding a reference captured in
+                // setUp, which could be stale if the agent reconnected during the build.
+                TunnelManager.stopOnChannel(currentChannel(build), tunnelIdentifier, listener);
             }
             return true;
         }
+    }
+
+    /** The live channel of the node the build ran on, or null if it is offline/unavailable. */
+    private static VirtualChannel currentChannel(AbstractBuild<?, ?> build) {
+        Node node = build.getBuiltOn();
+        Computer computer = node == null ? null : node.toComputer();
+        return computer == null ? null : computer.getChannel();
     }
     
     protected boolean migrateCredentials(AbstractProject project) {

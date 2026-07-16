@@ -259,8 +259,17 @@ public final class TunnelManager {
         }
         try {
             channel.call(new StopTunnelHandler(tunnelIdentifier, listener));
-        } catch (Exception ignored) {
-            // best effort
+        } catch (InterruptedException ie) {
+            // Restore the interrupt status; teardown stays best-effort and does not rethrow.
+            Thread.currentThread().interrupt();
+            if (listener != null) {
+                listener.getLogger().println("[TestingBot] Interrupted while stopping tunnel " + tunnelIdentifier);
+            }
+        } catch (Exception e) {
+            // Best-effort, but do not silently discard the failure — record why teardown could not complete.
+            if (listener != null) {
+                listener.getLogger().println("[TestingBot] Failed to stop tunnel " + tunnelIdentifier + ": " + e);
+            }
         }
     }
 
@@ -284,10 +293,25 @@ public final class TunnelManager {
         @Override
         public Void call() throws Exception {
             App app = new App();
+            // Reserve the identifier before booting: a duplicate identifier is rejected rather than
+            // silently overwriting (and leaking) an existing tunnel, and teardown can find and stop
+            // the App even while it is still booting.
+            App previous = RUNNING_TUNNELS.putIfAbsent(tunnelIdentifier, app);
+            if (previous != null) {
+                try {
+                    app.stop();
+                } catch (Exception ignored) {
+                    // best effort
+                }
+                throw new IllegalStateException(
+                        "A TestingBot tunnel with identifier '" + tunnelIdentifier + "' is already running");
+            }
             try {
                 start(app, key, secret, tunnelOptions, tunnelIdentifier, listener);
             } catch (Exception e) {
-                // Startup failed after the App was created; stop it so we don't leak a half-booted tunnel.
+                // Startup failed: remove only our own registry entry (leaving any concurrent owner
+                // untouched) and stop the App so we don't leak a half-booted tunnel.
+                RUNNING_TUNNELS.remove(tunnelIdentifier, app);
                 try {
                     app.stop();
                 } catch (Exception ignored) {
@@ -295,7 +319,6 @@ public final class TunnelManager {
                 }
                 throw e;
             }
-            RUNNING_TUNNELS.put(tunnelIdentifier, app);
             return null;
         }
     }
