@@ -23,6 +23,10 @@ import com.cloudbees.plugins.credentials.common.StandardCredentials;
 import com.cloudbees.plugins.credentials.domains.Domain;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.cloudbees.plugins.credentials.impl.BaseStandardCredentials;
+import com.testingbot.models.TestingbotUser;
+import com.testingbot.testingbotrest.TestingbotApiException;
+import com.testingbot.testingbotrest.TestingbotREST;
+import com.testingbot.testingbotrest.TestingbotUnauthorizedException;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
@@ -304,6 +308,39 @@ Logger.getLogger(TestingBotCredentials.class.getName()).log(Level.INFO, "existin
                 }
             }
             return FormValidation.ok();
+        }
+
+        /**
+         * Verifies a key/secret against the TestingBot API and reports whether they authenticate.
+         * Gated so only users who can configure the surrounding item (or admins) can probe.
+         */
+        @POST
+        public FormValidation doVerifyCredentials(@QueryParameter String key, @QueryParameter String secret,
+                @AncestorInPath ModelObject context) {
+            boolean allowed = Jenkins.get().hasPermission(Jenkins.ADMINISTER)
+                    || (context instanceof Item && ((Item) context).hasPermission(Item.CONFIGURE));
+            if (!allowed) {
+                return FormValidation.error("You do not have permission to verify credentials.");
+            }
+            if (Util.fixEmptyAndTrim(key) == null || Util.fixEmptyAndTrim(secret) == null) {
+                return FormValidation.error("Enter both a key and a secret first.");
+            }
+            // The password field may submit the encrypted Secret when editing an existing credential;
+            // fromString transparently yields the plaintext either way.
+            String plainSecret = Secret.fromString(secret).getPlainText();
+            try (TestingbotREST rest = new TestingbotREST(key.trim(), plainSecret)) {
+                TestingbotUser user = rest.getUserInfo();
+                if (user == null || Util.fixEmptyAndTrim(user.getEmail()) == null) {
+                    return FormValidation.error("Could not verify these credentials with TestingBot.");
+                }
+                String plan = Util.fixEmptyAndTrim(user.getPlan());
+                return FormValidation.ok("Connection successful — signed in as %s%s",
+                        user.getEmail(), plan != null ? " (" + plan + " plan)" : "");
+            } catch (TestingbotUnauthorizedException | TestingbotApiException e) {
+                // The REST client's typed failures: bad key/secret, and network/parse errors (it wraps
+                // IOException into TestingbotApiException). Unexpected runtime exceptions propagate.
+                return FormValidation.error("TestingBot authentication failed: " + e.getMessage());
+            }
         }
     }
 
