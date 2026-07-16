@@ -27,7 +27,9 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import jenkins.tasks.SimpleBuildStep;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.displayurlapi.DisplayURLProvider;
@@ -86,21 +88,27 @@ public class TestingBotChecksPublisher extends Recorder implements SimpleBuildSt
         int total = 0;
         int passed = 0;
         List<String> rows = new ArrayList<>();
+        Set<String> seenSessions = new LinkedHashSet<>();
 
         AbstractTestResultAction<?> testResultAction = run.getAction(AbstractTestResultAction.class);
         if (testResultAction != null && testResultAction.getResult() instanceof TestResult) {
             TestResult testResult = (TestResult) testResultAction.getResult();
             for (SuiteResult sr : testResult.getSuites()) {
                 for (CaseResult cr : sr.getCases()) {
-                    if (TestingBotReportFactory.findSessionIDs(cr).isEmpty()) {
-                        continue;
-                    }
-                    total++;
                     boolean casePassed = cr.isPassed();
-                    if (casePassed) {
-                        passed++;
+                    for (String sessionId : TestingBotReportFactory.findSessionIDs(cr)) {
+                        String id = sessionId == null ? "" : sessionId.trim();
+                        // Count each distinct TestingBot session once, even if it appears in several
+                        // cases or a case logs several sessions; cases with no sessions add nothing.
+                        if (id.isEmpty() || !seenSessions.add(id)) {
+                            continue;
+                        }
+                        total++;
+                        if (casePassed) {
+                            passed++;
+                        }
+                        rows.add("| " + cr.getFullName() + " | " + (casePassed ? "✅ passed" : "❌ failed") + " |");
                     }
-                    rows.add("| " + cr.getFullName() + " | " + (casePassed ? "✅ passed" : "❌ failed") + " |");
                 }
             }
         }
