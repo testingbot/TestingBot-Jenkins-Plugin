@@ -129,7 +129,7 @@ node {
 
     // Inject credentials and start an isolated tunnel around the tests
     testingbot('251ca561abdfewf285') {
-        testingbotTunnel(credentialsId: '251ca561abdfewf285', options: '--tunnel-identifier ci-${BUILD_NUMBER}') {
+        testingbotTunnel(credentialsId: '251ca561abdfewf285', options: "--tunnel-identifier ci-${env.BUILD_NUMBER}") {
             sh 'ant test'
         }
     }
