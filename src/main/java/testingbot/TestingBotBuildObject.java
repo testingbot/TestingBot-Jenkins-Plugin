@@ -38,7 +38,8 @@ public class TestingBotBuildObject implements Serializable {
      * @return a preview thumbnail URL for the session, or an empty string when no assets are available.
      */
     public String getThumbUrl() {
-        return thumbUrl;
+        // Null-safe for build.xml records persisted before this field existed (deserialized as null).
+        return thumbUrl == null ? "" : thumbUrl;
     }
 
     /**

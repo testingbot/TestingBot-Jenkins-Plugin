@@ -54,7 +54,7 @@ An example on how to do this: `((RemoteWebDriver) driver).getSessionId().toStrin
 
 A full example that you can use is available on our GitHub [Jenkins-Demo](https://github.com/testingbot/Jenkins-Demo) page.
 
-On the build page, each TestingBot session is shown with a preview thumbnail and expands in place to the full session media (video screencast, screenshots and logs) — no need to leave Jenkins. The embedded media loads lazily, so collapsed sessions stay lightweight.
+On the build page, each JUnit test that used TestingBot is shown with a preview thumbnail of its session (the first one, if a test records several) and expands in place to the full session media (video screencast, screenshots and logs) — no need to leave Jenkins. The embedded media loads lazily, so collapsed sessions stay lightweight.
 
 ## Embedded TestingBot Build report
 
