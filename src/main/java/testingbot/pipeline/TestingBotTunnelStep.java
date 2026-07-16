@@ -16,9 +16,11 @@ import hudson.model.TaskListener;
 import hudson.model.TopLevelItem;
 import hudson.remoting.VirtualChannel;
 import hudson.security.ACL;
+import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Set;
 import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.workflow.steps.BodyExecution;
@@ -32,6 +34,7 @@ import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
+import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
 import testingbot.TestingBotBuildAction;
 import testingbot.TestingBotBuildReportAction;
@@ -109,6 +112,16 @@ public class TestingBotTunnelStep extends Step {
                             ACL.SYSTEM2,
                             new ArrayList<DomainRequirement>()
                     ));
+        }
+
+        public FormValidation doCheckOptions(@QueryParameter String value) {
+            List<String> problems = TunnelManager.unsupportedOptions(value);
+            if (problems.isEmpty()) {
+                return FormValidation.ok();
+            }
+            // A warning, not an error: unsupported options are ignored at runtime, they don't block the build.
+            return FormValidation.warning(
+                    "These tunnel option(s) are not recognized and will be ignored: " + String.join(", ", problems));
         }
     }
 
