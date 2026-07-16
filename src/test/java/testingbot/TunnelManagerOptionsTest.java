@@ -89,4 +89,19 @@ public class TunnelManagerOptionsTest {
         String log = applyAndCapture(app, "--metrics-port notanumber");
         assertThat(log).contains("metrics-port", "invalid value");
     }
+
+    @Test
+    public void accumulatesRepeatedAuthOptions() {
+        App app = new App();
+        TunnelManager.applyOptions(app, "--auth host1:80:u:p --auth host2:80:u:p", TaskListener.NULL);
+        assertThat(app.getBasicAuth()).containsExactly("host1:80:u:p", "host2:80:u:p");
+    }
+
+    @Test
+    public void extractsUserTunnelIdentifier() {
+        assertThat(TunnelManager.extractTunnelIdentifier("--debug --tunnel-identifier my-suite")).isEqualTo("my-suite");
+        assertThat(TunnelManager.extractTunnelIdentifier("-i short-id")).isEqualTo("short-id");
+        assertThat(TunnelManager.extractTunnelIdentifier("--debug --proxy host:8080")).isNull();
+        assertThat(TunnelManager.extractTunnelIdentifier(null)).isNull();
+    }
 }

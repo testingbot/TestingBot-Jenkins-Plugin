@@ -194,17 +194,14 @@ Logger.getLogger(TestingBotCredentials.class.getName()).log(Level.INFO, "existin
             return null;
         }
 
-        CredentialsMatcher matcher;
         if (credentialsId != null) {
-            matcher = CredentialsMatchers.allOf(CredentialsMatchers.withId(credentialsId));
-        } else {
-            matcher = CredentialsMatchers.always();
+            // A specific id was requested: return it or null — never silently fall back to a
+            // different account when the id does not match (renamed/mistyped/deleted credential).
+            return CredentialsMatchers.firstOrNull(available,
+                    CredentialsMatchers.withId(credentialsId));
         }
-
-        return CredentialsMatchers.firstOrDefault(
-                available,
-                matcher,
-                available.get(0));
+        // No id specified: use the first available credential.
+        return available.get(0);
     }
 
     public static List<TestingBotCredentials> availableCredentials(final AbstractItem abstractItem) {

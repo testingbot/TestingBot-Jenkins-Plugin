@@ -133,7 +133,8 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
 
         @POST
         public ListBoxModel doFillCredentialsIdItems(@AncestorInPath final Item context) {
-            if (context != null && !context.hasPermission(Item.CONFIGURE)) {
+            if (context == null ? !Jenkins.get().hasPermission(Jenkins.ADMINISTER)
+                    : !context.hasPermission(Item.CONFIGURE)) {
                 return new StandardListBoxModel();
             }
 
