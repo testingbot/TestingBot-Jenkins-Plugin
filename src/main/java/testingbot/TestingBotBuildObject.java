@@ -11,7 +11,9 @@ public class TestingBotBuildObject implements Serializable {
     private String testName;
     private final boolean isPassed;
     private String authHash;
-    private TestingbotTest test;
+    // Transient: only used in the constructor to derive environmentName, and never read afterwards.
+    // Persisting it would fail the JEP-200 class filter (TestingbotTest is not marshalable) and bloat build.xml.
+    private transient TestingbotTest test;
     private String environmentName;
 
     public TestingBotBuildObject(String sessionId, String className, String testName, boolean isPassed, String authHash, TestingbotTest test) {

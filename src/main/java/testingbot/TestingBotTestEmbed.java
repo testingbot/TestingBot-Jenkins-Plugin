@@ -12,7 +12,6 @@ import java.util.List;
 public class TestingBotTestEmbed implements RunAction2 {
     private transient Run run;
     private List<TestingBotBuildObject> ids;
-    private TestingBotBuildObject tbo;
 
     public TestingBotTestEmbed(List<TestingBotBuildObject> ids) {
         this.ids = ids;
@@ -52,8 +51,6 @@ public class TestingBotTestEmbed implements RunAction2 {
     public void doIndex(StaplerRequest2 req, StaplerResponse2 rsp)
             throws IOException {
         String sessionId = req.getParameter("sessionId");
-        // Reset the selection each request so a subsequent unmatched request does not render a
-        // previously-selected session's media (this action is shared across requests for the run).
         TestingBotBuildObject selected = null;
         for (TestingBotBuildObject candidate : this.ids) {
             if (candidate.getSessionId().equals(sessionId)) {
@@ -61,7 +58,9 @@ public class TestingBotTestEmbed implements RunAction2 {
                 break;
             }
         }
-        this.tbo = selected;
+        // Pass the selection through the request (this action is shared across concurrent requests,
+        // so a per-instance field would let requests overwrite each other's selected session).
+        req.setAttribute("tbo", selected);
         try {
             req.getView(this, selected != null ? "show.jelly" : "index.jelly").forward(req, rsp);
         } catch (ServletException e) {
@@ -71,10 +70,6 @@ public class TestingBotTestEmbed implements RunAction2 {
 
     public Run getRun() {
         return run;
-    }
-
-    public TestingBotBuildObject getTbo() {
-        return tbo;
     }
 
     public List<TestingBotBuildObject> getSessionIds() {
