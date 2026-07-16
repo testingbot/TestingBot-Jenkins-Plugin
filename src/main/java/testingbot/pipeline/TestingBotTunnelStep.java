@@ -37,6 +37,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.verb.POST;
 import testingbot.TestingBotBuildAction;
+import testingbot.TestingBotBuildReportAction;
 import testingbot.TestingBotCredentials;
 import testingbot.TunnelManager;
 
@@ -235,6 +236,9 @@ public class TestingBotTunnelStep extends Step {
 
             HashMap<String, String> env = new HashMap<>();
             TunnelManager.populateCredentialEnv(env, tbCredentials);
+            // Expose the build id and add the embeddable build-report page so all sessions using
+            // build=$TESTINGBOT_BUILD are grouped and viewable inside Jenkins.
+            env.put(TestingBotBuildReportAction.TESTINGBOT_BUILD, TestingBotBuildReportAction.attach(run, tbCredentials));
             env.put(TESTINGBOT_TUNNEL_IDENTIFIER, tunnelIdentifier);
             String hubHost = "localhost";
             String hubPort = Integer.toString(defaultSeleniumPort());
