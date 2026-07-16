@@ -1,45 +1,44 @@
 package testingbot.pipeline;
 
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
-import hudson.util.ListBoxModel;
-import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
-import org.jenkinsci.plugins.workflow.steps.AbstractStepExecutionImpl;
-import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
-import hudson.console.ConsoleLogFilter;
-import org.jenkinsci.plugins.workflow.steps.BodyExecution;
-import org.jenkinsci.plugins.workflow.steps.BodyExecutionCallback;
-import org.jenkinsci.plugins.workflow.steps.BodyInvoker;
-import org.jenkinsci.plugins.workflow.steps.EnvironmentExpander;
-import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
-import org.kohsuke.stapler.AncestorInPath;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.export.ExportedBean;
-
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
-import com.google.inject.Inject;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.Util;
+import hudson.console.ConsoleLogFilter;
 import hudson.model.Item;
 import hudson.model.Job;
 import hudson.model.Run;
 import hudson.model.TopLevelItem;
 import hudson.security.ACL;
-import jenkins.model.Jenkins;
-import org.kohsuke.stapler.verb.POST;
+import hudson.util.ListBoxModel;
 import java.util.ArrayList;
-
-import edu.umd.cs.findbugs.annotations.NonNull;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Set;
+import jenkins.model.Jenkins;
+import org.jenkinsci.plugins.workflow.steps.BodyExecution;
+import org.jenkinsci.plugins.workflow.steps.BodyExecutionCallback;
+import org.jenkinsci.plugins.workflow.steps.BodyInvoker;
+import org.jenkinsci.plugins.workflow.steps.EnvironmentExpander;
+import org.jenkinsci.plugins.workflow.steps.Step;
+import org.jenkinsci.plugins.workflow.steps.StepContext;
+import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
+import org.jenkinsci.plugins.workflow.steps.StepExecution;
+import org.kohsuke.stapler.AncestorInPath;
+import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.verb.POST;
 import testingbot.TestingBotBuildAction;
 import testingbot.TestingBotCredentials;
 import testingbot.TunnelManager;
 
-@ExportedBean
-public class TestingBotStep extends AbstractStepImpl {
+/**
+ * {@code testingbot(credentialsId) { ... }} — injects the TestingBot credential environment
+ * variables (and provides the credentials to the block) around a Pipeline body.
+ */
+public class TestingBotStep extends Step {
+
     private final String credentialsId;
 
     @DataBoundConstructor
@@ -51,74 +50,88 @@ public class TestingBotStep extends AbstractStepImpl {
         return credentialsId;
     }
 
-    public static class Execution extends AbstractStepExecutionImpl {
-        private static final long serialVersionUID = 1;
+    @Override
+    public StepExecution start(StepContext context) {
+        return new Execution(context, this);
+    }
 
-        @Inject(optional=true) private transient TestingBotStep step;
-        @StepContextParameter private transient Run<?,?> run;
+    private static final class Execution extends StepExecution {
 
-        private BodyExecution body;
+        private static final long serialVersionUID = 1L;
 
-        @Override public boolean start() throws Exception {
-            Job<?,?> job = run.getParent();
+        private final transient TestingBotStep step;
+        private transient BodyExecution body;
+
+        Execution(StepContext context, TestingBotStep step) {
+            super(context);
+            this.step = step;
+        }
+
+        @Override
+        public boolean start() throws Exception {
+            StepContext context = getContext();
+            Run<?, ?> run = context.get(Run.class);
+            Job<?, ?> job = run.getParent();
             if (!(job instanceof TopLevelItem)) {
                 throw new Exception(job + " must be a top-level job");
             }
-            
-            final TestingBotCredentials credentials = TestingBotCredentials.getCredentials(job, step.getCredentialsId());
 
+            final TestingBotCredentials credentials = TestingBotCredentials.getCredentials(job, step.getCredentialsId());
             if (credentials == null) {
                 throw new Exception("no credentials provided");
             }
             CredentialsProvider.track(run, credentials);
 
-
-            HashMap<String,String> env = new HashMap<String,String>();
+            HashMap<String, String> env = new HashMap<>();
             TunnelManager.populateCredentialEnv(env, credentials);
-            TestingBotBuildAction buildAction = run.getAction(TestingBotBuildAction.class);
-            if (buildAction == null) {
-                buildAction = new TestingBotBuildAction(credentials);
-                run.addAction(buildAction);
+            if (run.getAction(TestingBotBuildAction.class) == null) {
+                run.addAction(new TestingBotBuildAction(credentials));
             }
 
-            body = getContext().newBodyInvoker()
-                .withContext(credentials)
-                .withContext(EnvironmentExpander.merge(getContext().get(EnvironmentExpander.class), new ExpanderImpl(env)))
-                .withContext(BodyInvoker.mergeConsoleLogFilters(getContext().get(ConsoleLogFilter.class), new SecretMaskingConsoleLogFilter(credentials.getDecryptedSecret())))
-                .withCallback(BodyExecutionCallback.wrap(getContext()))
-                .start();
+            body = context.newBodyInvoker()
+                    .withContext(credentials)
+                    .withContext(EnvironmentExpander.merge(context.get(EnvironmentExpander.class), new ExpanderImpl(env)))
+                    .withContext(BodyInvoker.mergeConsoleLogFilters(context.get(ConsoleLogFilter.class), new SecretMaskingConsoleLogFilter(credentials.getDecryptedSecret())))
+                    .withCallback(BodyExecutionCallback.wrap(context))
+                    .start();
             return false;
         }
 
-        @Override public void stop(@NonNull Throwable cause) throws Exception {
-            // should be no need to do anything special (but verify in JENKINS-26148)
-            if (body!=null) {
+        @Override
+        public void stop(@NonNull Throwable cause) throws Exception {
+            if (body != null) {
                 body.cancel(cause);
             }
         }
     }
 
     @Extension
-    public static final class DescriptorImpl extends AbstractStepDescriptorImpl {
-        public DescriptorImpl() {
-            super(Execution.class);
-        }
+    public static final class DescriptorImpl extends StepDescriptor {
 
-        @Override public String getDisplayName() {
-            return "TestingBot";
-        }
-
-        @Override public String getFunctionName() {
+        @Override
+        public String getFunctionName() {
             return "testingbot";
         }
 
-        @Override public boolean takesImplicitBlockArgument() {
+        @NonNull
+        @Override
+        public String getDisplayName() {
+            return "TestingBot";
+        }
+
+        @Override
+        public boolean takesImplicitBlockArgument() {
             return true;
         }
 
         @Override
+        public Set<Class<?>> getRequiredContext() {
+            return Set.of(Run.class);
+        }
+
+        @Override
         public Set<Class<?>> getProvidedContext() {
-            return Collections.<Class<?>>singleton(TestingBotCredentials.class);
+            return Set.of(TestingBotCredentials.class);
         }
 
         @POST
@@ -129,10 +142,9 @@ public class TestingBotStep extends AbstractStepImpl {
                 return new StandardListBoxModel();
             }
             return new StandardListBoxModel().withMatching(
-                  CredentialsMatchers.anyOf(CredentialsMatchers.instanceOf(TestingBotCredentials.class)),
-                  CredentialsProvider.lookupCredentialsInItem(TestingBotCredentials.class, context, ACL.SYSTEM2,
-                      new ArrayList<DomainRequirement>()));
+                    CredentialsMatchers.anyOf(CredentialsMatchers.instanceOf(TestingBotCredentials.class)),
+                    CredentialsProvider.lookupCredentialsInItem(TestingBotCredentials.class, context, ACL.SYSTEM2,
+                            new ArrayList<DomainRequirement>()));
         }
-
     }
 }

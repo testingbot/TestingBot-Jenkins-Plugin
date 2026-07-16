@@ -3,10 +3,8 @@ package testingbot.pipeline;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
-import com.google.inject.Inject;
 import com.testingbot.tunnel.App;
 import edu.umd.cs.findbugs.annotations.NonNull;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.Extension;
 import hudson.console.ConsoleLogFilter;
 import hudson.model.Computer;
@@ -20,19 +18,19 @@ import hudson.security.ACL;
 import hudson.util.ListBoxModel;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import jenkins.model.Jenkins;
 import jenkins.security.MasterToSlaveCallable;
-import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
-import org.jenkinsci.plugins.workflow.steps.AbstractStepExecutionImpl;
-import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
 import org.jenkinsci.plugins.workflow.steps.BodyExecution;
 import org.jenkinsci.plugins.workflow.steps.BodyExecutionCallback;
 import org.jenkinsci.plugins.workflow.steps.BodyInvoker;
 import org.jenkinsci.plugins.workflow.steps.EnvironmentExpander;
+import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
-import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
+import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
+import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
@@ -41,7 +39,7 @@ import testingbot.TestingBotBuildAction;
 import testingbot.TestingBotCredentials;
 import testingbot.TunnelManager;
 
-public class TestingBotTunnelStep extends AbstractStepImpl {
+public class TestingBotTunnelStep extends Step {
 
     /** Env var exposing the (possibly auto-generated) tunnel identifier to the build. */
     public static final String TESTINGBOT_TUNNEL_IDENTIFIER = "TESTINGBOT_TUNNEL_IDENTIFIER";
@@ -82,12 +80,13 @@ public class TestingBotTunnelStep extends AbstractStepImpl {
         this.credentialsId = credentialsId;
     }
 
-    @Extension
-    public static final class DescriptorImpl extends AbstractStepDescriptorImpl {
+    @Override
+    public StepExecution start(StepContext context) {
+        return new TestingBotTunnelStepExecution(context, this);
+    }
 
-        public DescriptorImpl() {
-            super(TestingBotTunnelStepExecution.class);
-        }
+    @Extension
+    public static final class DescriptorImpl extends StepDescriptor {
 
         @Override
         public String getDisplayName() {
@@ -102,6 +101,11 @@ public class TestingBotTunnelStep extends AbstractStepImpl {
         @Override
         public boolean takesImplicitBlockArgument() {
             return true;
+        }
+
+        @Override
+        public Set<Class<?>> getRequiredContext() {
+            return Set.of(Run.class, Computer.class, TaskListener.class);
         }
 
         @POST
@@ -173,25 +177,26 @@ public class TestingBotTunnelStep extends AbstractStepImpl {
         }
     }
 
-    @SuppressFBWarnings("SE_NO_SERIALVERSIONID")
-    public static class TestingBotTunnelStepExecution extends AbstractStepExecutionImpl {
+    public static class TestingBotTunnelStepExecution extends StepExecution {
 
-        @Inject(optional = true)
-        private transient TestingBotTunnelStep step;
-        @StepContextParameter
-        private transient TestingBotCredentials tbCredentials;
-        @StepContextParameter
-        private transient Computer computer;
-        @StepContextParameter
-        private transient Run<?, ?> run;
-        @StepContextParameter
-        private transient TaskListener listener;
+        private static final long serialVersionUID = 1L;
 
-        private BodyExecution body;
+        private final transient TestingBotTunnelStep step;
+        private transient BodyExecution body;
         private String tunnelIdentifier;
+
+        TestingBotTunnelStepExecution(StepContext context, TestingBotTunnelStep step) {
+            super(context);
+            this.step = step;
+        }
 
         @Override
         public boolean start() throws Exception {
+            StepContext context = getContext();
+            Run<?, ?> run = context.get(Run.class);
+            Computer computer = context.get(Computer.class);
+            TaskListener listener = context.get(TaskListener.class);
+
             Job<?, ?> job = run.getParent();
             if (!(job instanceof TopLevelItem)) {
                 throw new Exception(job + " must be a top-level job");
@@ -203,6 +208,7 @@ public class TestingBotTunnelStep extends AbstractStepImpl {
 
             String options = step.getOptions() == null ? "" : step.getOptions().trim();
 
+            TestingBotCredentials tbCredentials = context.get(TestingBotCredentials.class);
             if (tbCredentials == null) {
                 tbCredentials = TestingBotCredentials.getCredentials(job, step.getCredentialsId());
             }
