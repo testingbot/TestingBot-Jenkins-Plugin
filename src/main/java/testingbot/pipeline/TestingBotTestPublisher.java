@@ -16,7 +16,7 @@ import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
-import javax.annotation.Nonnull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -48,7 +48,7 @@ public class TestingBotTestPublisher extends Recorder implements SimpleBuildStep
      * Created for implementing SimpleBuildStep / pipeline
      */
     @Override
-    public void perform(@Nonnull Run<?, ?> run, @Nonnull FilePath workspace, @Nonnull Launcher launcher, @Nonnull TaskListener listener) throws InterruptedException, IOException {
+    public void perform(@NonNull Run<?, ?> run, @NonNull FilePath workspace, @NonNull Launcher launcher, @NonNull TaskListener listener) throws InterruptedException, IOException {
         TestResultAction report = run.getAction(TestResultAction.class);
         if (report != null) {
             List<TestResultAction.Data> data = new ArrayList<TestResultAction.Data>();
@@ -62,7 +62,9 @@ public class TestingBotTestPublisher extends Recorder implements SimpleBuildStep
             }
             TestReporter tbPublisher = createReportPublisher();
             TestResultAction.Data d = tbPublisher.contributeTestData(run, workspace, launcher, listener, report.getResult());
-            data.add(d);
+            if (d != null) {
+                data.add(d);
+            }
 
             report.setData(data);
             run.save();
@@ -95,7 +97,9 @@ public class TestingBotTestPublisher extends Recorder implements SimpleBuildStep
             }
             TestReporter tbPublisher = createReportPublisher();
             TestResultAction.Data d = tbPublisher.getTestData(build, launcher, listener, report.getResult());
-            data.add(d);
+            if (d != null) {
+                data.add(d);
+            }
 
             report.setData(data);
             build.save();
@@ -114,7 +118,7 @@ public class TestingBotTestPublisher extends Recorder implements SimpleBuildStep
         return testDataPublishers == null ? Collections.<TestDataPublisher>emptyList() : testDataPublishers;
     }
 
-    @DataBoundSetter public final void setTestDataPublishers(@Nonnull List<TestDataPublisher> testDataPublishers) {
+    @DataBoundSetter public final void setTestDataPublishers(@NonNull List<TestDataPublisher> testDataPublishers) {
         this.testDataPublishers = new DescribableList<TestDataPublisher,Descriptor<TestDataPublisher>>(Saveable.NOOP);
         this.testDataPublishers.addAll(testDataPublishers);
     }

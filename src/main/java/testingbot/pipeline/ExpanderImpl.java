@@ -3,7 +3,7 @@ package testingbot.pipeline;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.Nonnull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import org.jenkinsci.plugins.workflow.steps.EnvironmentExpander;
 import hudson.EnvVars;
 
@@ -17,7 +17,7 @@ public class ExpanderImpl extends EnvironmentExpander{
   }
 
   @Override
-  public void expand(@Nonnull EnvVars env) throws IOException, InterruptedException {
+  public void expand(@NonNull EnvVars env) throws IOException, InterruptedException {
       env.overrideAll(overrides);
   }
 }

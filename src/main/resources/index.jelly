@@ -1,0 +1,8 @@
+<?jelly escape-by-default='true'?>
+<div>
+    This plugin integrates <a href="https://testingbot.com">TestingBot</a> into Jenkins: it can set up and
+    tear down a TestingBot Tunnel around a build, inject TestingBot credentials as environment variables, and
+    embed TestingBot session reports (screenshots and video) into your JUnit test results. It supports both
+    freestyle jobs and Pipeline (the <code>testingbot</code>, <code>testingbotTunnel</code> and
+    <code>testingbotPublisher</code> steps).
+</div>

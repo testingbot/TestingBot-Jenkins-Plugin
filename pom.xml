@@ -4,20 +4,20 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>4.16</version>
+        <version>5.31</version>
     </parent>
     <properties>
-        <jenkins.version>2.338</jenkins.version>
-        <java.level>8</java.level>
+        <jenkins.version>2.541.3</jenkins.version>
+        <gitHubRepo>jenkinsci/testingbot-plugin</gitHubRepo>
         <hudsonTags>buildwrapper</hudsonTags>
-        <findbugs.skip>true</findbugs.skip>
     </properties>
     <scm>
-        <connection>scm:git:git://github.com/jenkinsci/testingbot-plugin.git</connection>
-        <developerConnection>scm:git:git@github.com:jenkinsci/testingbot-plugin.git</developerConnection>
-        <tag>testingbot-1.20-SNAPSHOT</tag>
+        <connection>scm:git:https://github.com/${gitHubRepo}.git</connection>
+        <developerConnection>scm:git:https://github.com/${gitHubRepo}.git</developerConnection>
+        <tag>HEAD</tag>
+        <url>https://github.com/${gitHubRepo}</url>
     </scm>
-    <url>https://github.com/jenkinsci/testingbot-plugin</url>
+    <url>https://github.com/${gitHubRepo}</url>
     <developers>
         <developer>
             <id>testingbot</id>
@@ -31,8 +31,14 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <!--
+                      The com.testingbot:TestingBotTunnel artifact is an uber-jar that bundles an
+                      old Jetty, which clashes with the Jenkins test harness' Jetty 12 on the flat
+                      test classpath. That breaks any JenkinsRule-based test, including the
+                      parent-injected one, so it is excluded here. See README (Known limitations).
+                    -->
                     <excludes>
-                        <exclude>InjectedTest.java</exclude>
+                        <exclude>**/InjectedTest.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
@@ -49,7 +55,7 @@
     <description>This plugin integrates videos/screenshots of your TestingBot.com Selenium tests</description>
     <groupId>testingbot</groupId>
     <artifactId>testingbot</artifactId>
-    <version>1.22-SNAPSHOT</version>
+    <version>1.23-SNAPSHOT</version>
     <packaging>hpi</packaging>
     <repositories>
         <repository>
@@ -67,8 +73,8 @@
         <dependencies>
             <dependency>
                 <groupId>io.jenkins.tools.bom</groupId>
-                <artifactId>bom-2.235.x</artifactId>
-                <version>25</version>
+                <artifactId>bom-2.541.x</artifactId>
+                <version>6687.v4253d9799d33</version>
                 <scope>import</scope>
                 <type>pom</type>
             </dependency>
@@ -78,8 +84,23 @@
         <dependency>
             <groupId>com.testingbot</groupId>
             <artifactId>TestingBotTunnel</artifactId>
-            <version>RELEASE</version>
+            <version>4.8</version>
             <scope>compile</scope>
+            <!--
+              Use the self-contained "shaded" classifier and exclude all transitive dependencies.
+              The tunnel embeds its own server stack (Jetty 11, Jackson, Apache HTTP, commons-cli),
+              which conflicts with the versions Jenkins manages (e.g. Jetty 12, Jackson 2.22). Those
+              libraries are only used internally by the tunnel at runtime, where the plugin classloader
+              keeps them isolated from Jenkins core, so we consume the bundled jar rather than leak an
+              unreconcilable transitive tree into the plugin build.
+            -->
+            <classifier>shaded</classifier>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.testingbot</groupId>
@@ -100,13 +121,6 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        <dependency>
-            <groupId>org.jmockit</groupId>
-            <artifactId>jmockit</artifactId>
-            <version>1.24</version>
-            <scope>test</scope>
-        </dependency>
-
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>

@@ -69,6 +69,20 @@ This will start the tunnel before your job runs. Once the job finishes, the tunn
 
 `testingbotPublisher()` will try to read the JUnit report files and show the test results from TestingBot.
 
+### Environment variables
+
+Inside **both** `testingbot { }` and `testingbotTunnel { }` blocks:
+
+* `TESTINGBOT_KEY` / `TB_KEY` – your TestingBot API key
+* `TESTINGBOT_SECRET` / `TB_SECRET` – your TestingBot API secret (masked in the build log)
+
+Inside a `testingbotTunnel { }` block only (these describe the tunnel started for that block):
+
+* `SELENIUM_HOST` / `SELENIUM_PORT` – host and port to point your Selenium client at when using the tunnel
+* `TESTINGBOT_TUNNEL_IDENTIFIER` – the identifier of the tunnel started for this block. Pass it in your desired capabilities so parallel builds each use their own tunnel.
+
+Each `testingbotTunnel { }` block starts an isolated tunnel with its own identifier, so parallel pipeline branches no longer interfere with one another.
+
 An example:
 
 ```
@@ -115,10 +129,8 @@ To build the plugin, use:
 
 ## Releasing the Plugin
 
-To release the plugin, use:
-
-`mvn release:prepare release:perform`
+Releases are published automatically through the Jenkins [continuous delivery](https://www.jenkins.io/doc/developer/publishing/releasing-cd/) (JEP-229) flow: merging to the default branch triggers the `cd` GitHub Actions workflow, which builds and publishes an incremental release. There is no manual `mvn release:prepare` step.
 
 ## Reporting Issues
 
-Please [file a new issue](https://github.com/testingbot/TestingBot-Jenkins-Plugin/issues).
+Please [file a new issue](https://github.com/jenkinsci/testingbot-plugin/issues) on the GitHub repository.

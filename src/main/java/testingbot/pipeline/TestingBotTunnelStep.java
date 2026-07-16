@@ -1,16 +1,14 @@
 package testingbot.pipeline;
 
-import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
-import com.cloudbees.plugins.credentials.common.StandardUsernameListBoxModel;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.google.inject.Inject;
-import com.testingbot.tunnel.Api;
 import com.testingbot.tunnel.App;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.Extension;
-import hudson.Util;
+import hudson.console.ConsoleLogFilter;
 import hudson.model.Computer;
 import hudson.model.Item;
 import hudson.model.Job;
@@ -19,47 +17,47 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.model.TopLevelItem;
 import hudson.security.ACL;
-
 import hudson.util.ListBoxModel;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import jenkins.model.Jenkins;
 import jenkins.security.MasterToSlaveCallable;
-import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepDescriptorImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepExecutionImpl;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepImpl;
 import org.jenkinsci.plugins.workflow.steps.BodyExecution;
 import org.jenkinsci.plugins.workflow.steps.BodyExecutionCallback;
+import org.jenkinsci.plugins.workflow.steps.BodyInvoker;
 import org.jenkinsci.plugins.workflow.steps.EnvironmentExpander;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
-
-import javax.annotation.Nonnull;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import net.sf.json.JSONObject;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.OptionBuilder;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.PosixParser;
-import testingbot.TestingBotBuildWrapper;
-import static testingbot.TestingBotBuildWrapper.TB_KEY;
-import static testingbot.TestingBotBuildWrapper.TB_SECRET;
-import static testingbot.TestingBotBuildWrapper.TESTINGBOT_KEY;
-import static testingbot.TestingBotBuildWrapper.TESTINGBOT_SECRET;
+import org.kohsuke.stapler.verb.POST;
+import testingbot.TestingBotBuildAction;
 import testingbot.TestingBotCredentials;
+import testingbot.TunnelManager;
 
 public class TestingBotTunnelStep extends AbstractStepImpl {
 
+    /** Env var exposing the (possibly auto-generated) tunnel identifier to the build. */
+    public static final String TESTINGBOT_TUNNEL_IDENTIFIER = "TESTINGBOT_TUNNEL_IDENTIFIER";
+
+    /**
+     * Tunnels currently running in this JVM, keyed by tunnel identifier. Replaces the
+     * previous single static {@code App}, which caused concurrent executions on the same
+     * node to corrupt and tear down each other's tunnel.
+     */
+    private static final ConcurrentHashMap<String, App> RUNNING_TUNNELS = new ConcurrentHashMap<>();
+
+    /** Monotonic suffix so multiple tunnels within one run get distinct generated identifiers. */
+    private static final AtomicInteger TUNNEL_SEQ = new AtomicInteger();
+
     private String options;
     private String credentialsId;
-    private static final App app = new App();
 
     @DataBoundConstructor
     public TestingBotTunnelStep(String credentialsId, String options) {
@@ -74,6 +72,14 @@ public class TestingBotTunnelStep extends AbstractStepImpl {
     @DataBoundSetter
     public void setOptions(String options) {
         this.options = options;
+    }
+
+    public String getCredentialsId() {
+        return credentialsId;
+    }
+
+    public void setCredentialsId(String credentialsId) {
+        this.credentialsId = credentialsId;
     }
 
     @Extension
@@ -98,149 +104,71 @@ public class TestingBotTunnelStep extends AbstractStepImpl {
             return true;
         }
 
+        @POST
         public ListBoxModel doFillCredentialsIdItems(final @AncestorInPath Item context) {
+            if (context == null ? !Jenkins.get().hasPermission(Jenkins.ADMINISTER)
+                    : !context.hasPermission(Item.CONFIGURE)) {
+                return new StandardListBoxModel();
+            }
             return new StandardListBoxModel()
-                    .withAll(CredentialsProvider.lookupCredentials(
+                    .withAll(CredentialsProvider.lookupCredentialsInItem(
                             TestingBotCredentials.class,
                             context,
-                            ACL.SYSTEM,
+                            ACL.SYSTEM2,
                             new ArrayList<DomainRequirement>()
                     ));
         }
-
     }
 
     private static final class TbStartTunnelHandler extends MasterToSlaveCallable<Void, Exception> {
 
-        private final TestingBotCredentials tbCredentials;
+        private final String key;
+        private final String secret;
         private final String tunnelOptions;
+        private final String tunnelIdentifier;
         private final TaskListener listener;
 
-        TbStartTunnelHandler(TestingBotCredentials tbCredentials, String tunnelOptions, TaskListener listener) {
-            this.tbCredentials = tbCredentials;
+        TbStartTunnelHandler(String key, String secret, String tunnelOptions, String tunnelIdentifier, TaskListener listener) {
+            this.key = key;
+            this.secret = secret;
             this.tunnelOptions = tunnelOptions;
+            this.tunnelIdentifier = tunnelIdentifier;
             this.listener = listener;
-            CommandLine commandLine;
-            CommandLineParser cmdLinePosixParser = new PosixParser();
-            final Options options = new Options();
-
-            options.addOption("h", "help", false, "Displays help text");
-            options.addOption("d", "debug", false, "Enables debug messages");
-
-            Option readyfile = new Option("f", "readyfile", true, "This file will be touched when the tunnel is ready for usage");
-            readyfile.setArgName("FILE");
-            options.addOption(readyfile);
-
-            Option seleniumPort = new Option("P", "se-port", true, "The local port your Selenium test should connect to.");
-            seleniumPort.setArgName("PORT");
-            options.addOption(seleniumPort);
-
-            Option fastFail = new Option("F", "fast-fail-regexps", true, "Specify domains you don't want to proxy, comma separated.");
-            fastFail.setArgName("OPTIONS");
-            options.addOption(fastFail);
-
-            Option metrics = OptionBuilder.withLongOpt("metrics-port").hasArg().withValueSeparator().withDescription("Use the specified port to access metrics. Default port 8003").create();
-            options.addOption(metrics);
-
-            Option proxy = new Option("Y", "proxy", true, "Specify an upstream proxy.");
-            proxy.setArgName("PROXYHOST:PROXYPORT");
-            options.addOption(proxy);
-
-            Option basicAuth = new Option("a", "auth", true, "Performs Basic Authentication for specific hosts.");
-            basicAuth.setArgs(Option.UNLIMITED_VALUES);
-            basicAuth.setArgName("host:port:user:passwd");
-            options.addOption(basicAuth);
-
-            Option pac = OptionBuilder.withLongOpt("pac").hasArg().withDescription("Proxy autoconfiguration. Should be a http(s) URL").create();
-            options.addOption(pac);
-
-            Option proxyAuth = new Option("z", "proxy-userpwd", true, "Username and password required to access the proxy configured with --proxy.");
-            proxyAuth.setArgName("user:pwd");
-            options.addOption(proxyAuth);
-
-            Option logfile = new Option("l", "logfile", true, "Write logging to a file.");
-            logfile.setArgName("FILE");
-            options.addOption(logfile);
-
-            Option identifier = new Option("i", "tunnel-identifier", true, "Add an identifier to this tunnel connection.\n In case of multiple tunnels, specify this identifier in your desired capabilities to use this specific tunnel connection.");
-            identifier.setArgName("id");
-            options.addOption(identifier);
-
-            Option hubPort = new Option("p", "hubport", true, "Use this if you want to connect to port 80 on our hub instead of the default port 4444");
-            hubPort.setArgName("HUBPORT");
-            options.addOption(hubPort);
-
-            Option extraHeaders = new Option(null, "extra-headers", true, "Inject extra headers in the requests the tunnel makes.");
-            extraHeaders.setArgName("JSON Map with Header Key and Value");
-            options.addOption(extraHeaders);
-
-            Option dns = new Option("dns", "dns", true, "Use a custom DNS server. For example: 8.8.8.8");
-            dns.setArgName("server");
-            options.addOption(dns);
-
-            Option localweb = new Option("w", "web", true, "Point to a directory for testing. Creates a local webserver.");
-            localweb.setArgName("directory");
-            options.addOption(localweb);
-
-            options.addOption("x", "noproxy", false, "Do not start a local proxy (requires user provided proxy server on port 8087)");
-            options.addOption("q", "nocache", false, "Bypass our Caching Proxy running on our tunnel VM.");
-            options.addOption("j", "localproxy", true, "The port to launch the local proxy on (default 8087)");
-            options.addOption(null, "doctor", false, "Perform checks to detect possible misconfiguration or problems.");
-            options.addOption("v", "version", false, "Displays the current version of this program");
-            
-            try {
-                commandLine = cmdLinePosixParser.parse(options, tunnelOptions.split(" "));
-                if (commandLine.hasOption("debug")) {
-                    app.setDebugMode(true);
-                }
-            } catch (Exception e) {
-                
-            }
         }
 
         @Override
-        public Void call() {
-            app.setClientKey(tbCredentials.getKey());
-            app.setClientSecret(tbCredentials.getDecryptedSecret());
+        public Void call() throws Exception {
+            App app = new App();
             try {
-                app.boot();
-                Api api = app.getApi();
-                JSONObject response;
-                boolean ready = false;
-                String tunnelID = Integer.toString(app.getTunnelID());
-                while (!ready) {
-                    try {
-                        response = api.pollTunnel(tunnelID);
-                        ready = response.getString("state").equals("READY");
-                    } catch (Exception ex) {
-                        Logger.getLogger(TestingBotBuildWrapper.class.getName()).log(Level.SEVERE, null, ex);
-                        break;
-                    }
-                    Thread.sleep(3000);
+                TunnelManager.start(app, key, secret, tunnelOptions, tunnelIdentifier, listener);
+            } catch (Exception e) {
+                // Startup failed after the App was created; stop it so we don't leak a half-booted tunnel.
+                try {
+                    app.stop();
+                } catch (Exception ignored) {
+                    // best effort
                 }
-            } catch (Exception ex) {
-                Logger.getLogger(TestingBotBuildWrapper.class.getName()).log(Level.SEVERE, null, ex);
+                throw e;
             }
+            RUNNING_TUNNELS.put(tunnelIdentifier, app);
             return null;
         }
     }
 
     private static final class TbStopTunnelHandler extends MasterToSlaveCallable<Void, Exception> {
 
-        private final TestingBotCredentials tbCredentials;
-        private final String options;
+        private final String tunnelIdentifier;
         private final TaskListener listener;
 
-        TbStopTunnelHandler(TestingBotCredentials tbCredentials, String options, TaskListener listener) {
-            this.tbCredentials = tbCredentials;
-            this.options = options;
+        TbStopTunnelHandler(String tunnelIdentifier, TaskListener listener) {
+            this.tunnelIdentifier = tunnelIdentifier;
             this.listener = listener;
         }
 
         @Override
         public Void call() {
-            listener.getLogger().println("Stopping TestingBot Tunnel");
-            app.stop();
+            App app = RUNNING_TUNNELS.remove(tunnelIdentifier);
+            TunnelManager.stop(app, listener);
             return null;
         }
     }
@@ -260,6 +188,7 @@ public class TestingBotTunnelStep extends AbstractStepImpl {
         private transient TaskListener listener;
 
         private BodyExecution body;
+        private String tunnelIdentifier;
 
         @Override
         public boolean start() throws Exception {
@@ -272,85 +201,82 @@ public class TestingBotTunnelStep extends AbstractStepImpl {
                 throw new Exception("computer does not correspond to a live node");
             }
 
-            ArrayList<String> optionsArray = new ArrayList<String>();
-            optionsArray.add(step.getOptions());
-            optionsArray.removeAll(Collections.singleton("")); // remove the empty strings
+            String options = step.getOptions() == null ? "" : step.getOptions().trim();
 
-            String options = StringUtils.join(optionsArray, " ");
             if (tbCredentials == null) {
                 tbCredentials = TestingBotCredentials.getCredentials(job, step.getCredentialsId());
             }
+            if (tbCredentials == null) {
+                throw new Exception("No TestingBot credentials found for id '" + step.getCredentialsId() + "'");
+            }
 
-            HashMap<String, String> env = new HashMap<String, String>();
-            env.put(TESTINGBOT_KEY, tbCredentials.getKey());
-            env.put(TB_KEY, tbCredentials.getKey());
-            env.put(TESTINGBOT_SECRET, tbCredentials.getDecryptedSecret());
-            env.put(TB_SECRET, tbCredentials.getDecryptedSecret());
-            env.put("SELENIUM_PORT", "4445");
+            // Ensure the run carries the credentials so the secret can be masked in the log
+            // and reports can be associated, even when this step is used without testingbot {}.
+            if (run.getAction(TestingBotBuildAction.class) == null) {
+                run.addAction(new TestingBotBuildAction(tbCredentials));
+            }
+
+            tunnelIdentifier = "jenkins-" + job.getName() + "-" + run.getNumber() + "-" + TUNNEL_SEQ.incrementAndGet();
+
+            // Resolve secrets on the controller; only plaintext crosses the channel (over the encrypted remoting link).
+            String key = tbCredentials.getKey();
+            String secret = tbCredentials.getDecryptedSecret();
+
+            HashMap<String, String> env = new HashMap<>();
+            TunnelManager.populateCredentialEnv(env, tbCredentials);
+            env.put(TESTINGBOT_TUNNEL_IDENTIFIER, tunnelIdentifier);
             env.put("SELENIUM_HOST", "localhost");
+            env.put("SELENIUM_PORT", Integer.toString(defaultSeleniumPort()));
 
-            listener.getLogger().println("Starting TestingBot Tunnel");
+            computer.getChannel().call(new TbStartTunnelHandler(key, secret, options, tunnelIdentifier, listener));
 
-            TbStartTunnelHandler handler = new TbStartTunnelHandler(
-                    tbCredentials,
-                    options,
-                    listener
-            );
-            computer.getChannel().call(handler);
-
-            body = getContext().newBodyInvoker()
-                    .withContext(EnvironmentExpander.merge(getContext().get(EnvironmentExpander.class), new ExpanderImpl(env)))
-                    .withCallback(new Callback(tbCredentials, options))
-                    .withDisplayName("TestingBot Tunnel")
-                    .start();
+            try {
+                body = getContext().newBodyInvoker()
+                        .withContext(EnvironmentExpander.merge(getContext().get(EnvironmentExpander.class), new ExpanderImpl(env)))
+                        .withContext(BodyInvoker.mergeConsoleLogFilters(getContext().get(ConsoleLogFilter.class), new SecretMaskingConsoleLogFilter(secret)))
+                        .withCallback(new Callback(tunnelIdentifier))
+                        .withDisplayName("TestingBot Tunnel")
+                        .start();
+            } catch (Exception e) {
+                // The tunnel started but the body could not be invoked; stop it now, otherwise the
+                // Callback that would normally stop it never runs and the tunnel leaks.
+                try {
+                    computer.getChannel().call(new TbStopTunnelHandler(tunnelIdentifier, listener));
+                } catch (Exception ignored) {
+                    // best effort
+                }
+                throw e;
+            }
 
             return false;
         }
 
         @Override
-        public void stop(@Nonnull Throwable cause) throws Exception {
+        public void stop(@NonNull Throwable cause) throws Exception {
             if (body != null) {
                 body.cancel(cause);
             }
         }
 
+        private static int defaultSeleniumPort() {
+            int port = new App().getSeleniumPort();
+            return port > 0 ? port : 4445;
+        }
+
         private static final class Callback extends BodyExecutionCallback.TailCall {
 
-            private final String options;
-            private final TestingBotCredentials tbCredentials;
+            private final String tunnelIdentifier;
 
-            Callback(TestingBotCredentials tbCredentials, String options) {
-                this.tbCredentials = tbCredentials;
-                this.options = options;
+            Callback(String tunnelIdentifier) {
+                this.tunnelIdentifier = tunnelIdentifier;
             }
 
             @Override
             protected void finished(StepContext context) throws Exception {
                 TaskListener listener = context.get(TaskListener.class);
                 Computer computer = context.get(Computer.class);
-
-                TbStopTunnelHandler stopTunnelHandler = new TbStopTunnelHandler(
-                        tbCredentials,
-                        options,
-                        listener
-                );
-                computer.getChannel().call(stopTunnelHandler);
+                computer.getChannel().call(new TbStopTunnelHandler(tunnelIdentifier, listener));
             }
-
         }
-    }
-
-    /**
-     * @return the credentialsId
-     */
-    public String getCredentialsId() {
-        return credentialsId;
-    }
-
-    /**
-     * @param credentialsId the credentialsId to set
-     */
-    public void setCredentialsId(String credentialsId) {
-        this.credentialsId = credentialsId;
     }
 }

@@ -15,16 +15,12 @@ import hudson.tasks.test.AbstractTestResultAction;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class TestingBotBuildSummary extends InvisibleAction implements Serializable {
     private static final long serialVersionUID = 1L;
-    private final transient AbstractBuild<?,?> build;
-    public List<TestingBotBuildObject> sessionIds;
-    
+    private final List<TestingBotBuildObject> sessionIds;
+
     public TestingBotBuildSummary(AbstractBuild<?,?> build, List<TestingBotBuildObject> sessionIds) {
-        this.build = build;
         this.sessionIds = sessionIds;
     }
 
@@ -43,36 +39,54 @@ public class TestingBotBuildSummary extends InvisibleAction implements Serializa
         @Override
         public void onCompleted(AbstractBuild<?, ?> r, TaskListener listener) {
             if (r == null) {
-                Logger.getLogger(TestingBotBuildSummary.class.getName()).log(Level.INFO, "r is null", "r is null");
                 return;
             }
-            if (r.getAction(AbstractTestResultAction.class) == null) {
-                Logger.getLogger(TestingBotBuildSummary.class.getName()).log(Level.INFO, "getaction is null", "getaction is null");
-            }
-            
+
+            // Only act on builds that are actually configured to use TestingBot.
             TestingBotBuildAction buildAction = r.getAction(TestingBotBuildAction.class);
             TestingBotCredentials credentials = null;
             if (buildAction != null) {
-              credentials = buildAction.getCredentials();
+                credentials = buildAction.getCredentials();
             } else {
-              TestingBotBuildWrapper.BuildWrapperItem<TestingBotBuildWrapper> wrapperItem =
-                  TestingBotBuildWrapper.findBuildWrapper(r.getParent());
-              credentials = TestingBotCredentials.getCredentials(wrapperItem.buildItem,
-                  wrapperItem.buildWrapper.getCredentialsId());
+                TestingBotBuildWrapper.BuildWrapperItem<TestingBotBuildWrapper> wrapperItem =
+                        TestingBotBuildWrapper.findBuildWrapper(r.getParent());
+                if (wrapperItem == null || wrapperItem.buildWrapper == null) {
+                    return;
+                }
+                credentials = TestingBotCredentials.getCredentials(wrapperItem.buildItem,
+                        wrapperItem.buildWrapper.getCredentialsId());
             }
-        
+            if (credentials == null) {
+                return;
+            }
+
+            AbstractTestResultAction<?> testResultAction = r.getAction(AbstractTestResultAction.class);
+            if (testResultAction == null) {
+                return;
+            }
+            Object result = testResultAction.getResult();
+            if (!(result instanceof TestResult)) {
+                return;
+            }
+            TestResult testResult = (TestResult) result;
+
             TestingbotREST apiClient = new TestingbotREST(credentials.getKey(), credentials.getDecryptedSecret());
-            TestResult testResult = (TestResult) r.getAction(AbstractTestResultAction.class).getResult();
             List<TestingBotBuildObject> ids = new ArrayList<>();
             for (SuiteResult sr : testResult.getSuites()) {
                 for (CaseResult cr : sr.getCases()) {
                     List<String> sessionIds = TestingBotReportFactory.findSessionIDs(cr);
-                    TestingbotTest test = apiClient.getTest(sessionIds.get(0));
-                    TestingBotBuildObject tbo = new TestingBotBuildObject(sessionIds.get(0), cr.getClassName(), cr.getName(), cr.isPassed(), apiClient.getAuthenticationHash(sessionIds.get(0)), test);
+                    if (sessionIds.isEmpty()) {
+                        continue;
+                    }
+                    String sessionId = sessionIds.get(0);
+                    TestingbotTest test = apiClient.getTest(sessionId);
+                    TestingBotBuildObject tbo = new TestingBotBuildObject(sessionId, cr.getClassName(), cr.getName(), cr.isPassed(), apiClient.getAuthenticationHash(sessionId), test);
                     ids.add(tbo);
                 }
             }
-            Logger.getLogger(TestingBotBuildSummary.class.getName()).log(Level.INFO, "try to get ids");
+            if (ids.isEmpty()) {
+                return;
+            }
             r.addAction(new TestingBotBuildSummary(r, ids));
             r.addAction(new TestingBotTestEmbed(ids));
         }

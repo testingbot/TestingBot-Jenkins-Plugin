@@ -1,10 +1,11 @@
 package testingbot;
 
-import org.apache.commons.lang.StringUtils;
+import org.jenkinsci.Symbol;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.export.Exported;
+import org.kohsuke.stapler.verb.POST;
 
 import com.cloudbees.plugins.credentials.BaseCredentials;
 import com.cloudbees.plugins.credentials.Credentials;
@@ -30,6 +31,7 @@ import hudson.model.AbstractItem;
 import hudson.model.Item;
 import hudson.model.ModelObject;
 import hudson.model.User;
+import hudson.security.ACL;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
 import java.io.BufferedReader;
@@ -51,10 +53,7 @@ import java.util.logging.Logger;
 
 @NameWith(value = TestingBotCredentials.NameProvider.class)
 public class TestingBotCredentials extends BaseCredentials implements StandardCredentials {
-    private static final Logger logger = Logger.getLogger(TestingBotCredentials.class.getName());
     private static final String CREDENTIAL_DISPLAY_NAME = "TestingBot";
-    private static final String OK_VALID_AUTH = "Success";
-    private static final String ERR_INVALID_AUTH = "Invalid key or secret.";
 
     private final String id;
     private final String description;
@@ -75,21 +74,12 @@ public class TestingBotCredentials extends BaseCredentials implements StandardCr
         return key;
     }
 
-    public boolean hasKey() {
-        return StringUtils.isNotBlank(key);
-    }
-
-    @Exported
     public Secret getSecret() {
         return secret;
     }
 
     public String getDecryptedSecret() {
         return secret.getPlainText();
-    }
-
-    public boolean hasSecret() {
-        return (secret != null);
     }
 
     @NonNull
@@ -114,10 +104,6 @@ public class TestingBotCredentials extends BaseCredentials implements StandardCr
         return IdCredentials.Helpers.hashCode(this);
     }
 
-    public static FormValidation testAuthentication(final String key, final String secret) {
-        return FormValidation.ok();
-    }
-
     private static List<String> getLegacyCredentials() {
         DataInputStream in = null;
         BufferedReader br = null;
@@ -133,6 +119,9 @@ public class TestingBotCredentials extends BaseCredentials implements StandardCr
                 return null;
             }
             String[] data = strLine.split(":");
+            if (data.length < 2) {
+                return null;
+            }
             apiKey = data[0];
             apiSecret = data[1];
 
@@ -190,7 +179,7 @@ Logger.getLogger(TestingBotCredentials.class.getName()).log(Level.INFO, "existin
 
             final Domain domain = Domain.global();
             if (credentialsMap.get(domain) == null) {
-                credentialsMap.put(domain, Collections.EMPTY_LIST);
+                credentialsMap.put(domain, new ArrayList<>());
             }
             credentialsMap.get(domain).add(credentialsToCreate);
 
@@ -219,14 +208,16 @@ Logger.getLogger(TestingBotCredentials.class.getName()).log(Level.INFO, "existin
     }
 
     public static List<TestingBotCredentials> availableCredentials(final AbstractItem abstractItem) {
-        return CredentialsProvider.lookupCredentials(
-                TestingBotCredentials.class,
-                abstractItem,
-                null,
-                new ArrayList<>());
+        if (abstractItem == null) {
+            return CredentialsProvider.lookupCredentialsInItemGroup(
+                    TestingBotCredentials.class, Jenkins.get(), ACL.SYSTEM2, Collections.emptyList());
+        }
+        return CredentialsProvider.lookupCredentialsInItem(
+                TestingBotCredentials.class, abstractItem, ACL.SYSTEM2, Collections.emptyList());
     }
 
     @Extension(ordinal = 1.0D)
+    @Symbol("testingbot")
     public static class DescriptorImpl extends CredentialsDescriptor {
 
         public DescriptorImpl() {
@@ -235,11 +226,6 @@ Logger.getLogger(TestingBotCredentials.class.getName()).log(Level.INFO, "existin
 
         public DescriptorImpl(Class<? extends BaseStandardCredentials> clazz) {
             super(clazz);
-        }
-
-        public final FormValidation doAuthenticate(@QueryParameter("key") String key,
-                @QueryParameter("secret") String secret) {
-            return testAuthentication(key, secret);
         }
 
         @Override
@@ -289,6 +275,7 @@ Logger.getLogger(TestingBotCredentials.class.getName()).log(Level.INFO, "existin
             return null;
         }
 
+        @POST
         public final FormValidation doCheckId(@QueryParameter String value, @AncestorInPath ModelObject context) {
             if (value.isEmpty()) {
                 return FormValidation.ok();
@@ -311,7 +298,7 @@ Logger.getLogger(TestingBotCredentials.class.getName()).log(Level.INFO, "existin
             }
             if (!(context instanceof Jenkins)) {
                 // CredentialsProvider.lookupStores(User) does not return SystemCredentialsProvider.
-                Jenkins j = Jenkins.getInstance();
+                Jenkins j = Jenkins.getInstanceOrNull();
                 if (j != null) {
                     problem = checkForDuplicates(value, context, j);
                     if (problem != null) {

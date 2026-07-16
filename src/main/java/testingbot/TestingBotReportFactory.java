@@ -24,42 +24,25 @@ public class TestingBotReportFactory extends Data {
         this.credentials = credentials;
     }
     
+    private static final Pattern SESSION_PATTERN = Pattern.compile("TestingBotSessionID=([A-Za-z0-9]+)");
+
     public static List<String> findSessionIDs(CaseResult testResult) {
         List<String> sessions = new ArrayList<>();
-        Pattern p = Pattern.compile("TestingBotSessionID=(.*)");
-        if (testResult.getStdout() != null) {
-            Matcher matchOut = p.matcher(testResult.getStdout());
-            while (matchOut.find()) {
-                String sessionId = matchOut.group(1);
-                sessions.add(sessionId);
-            }
-        }
-        
-        if (testResult.getStderr() != null) {
-            Matcher matchError = p.matcher(testResult.getStderr());
-            while (matchError.find()) {
-                String sessionId = matchError.group(1);
-                sessions.add(sessionId);
-            }
-        }
-        
-        if (testResult.getClassName() != null) {
-            Matcher matchName = p.matcher(testResult.getClassName());
-            while (matchName.find()) {
-                String sessionId = matchName.group(1);
-                sessions.add(sessionId);
-            }
-        }
-        
-        if (testResult.getFullName() != null) {
-            Matcher matchFullName = p.matcher(testResult.getFullName());
-            while (matchFullName.find()) {
-                String sessionId = matchFullName.group(1);
-                sessions.add(sessionId);
-            }
-        }
-        
+        collectSessionIDs(testResult.getStdout(), sessions);
+        collectSessionIDs(testResult.getStderr(), sessions);
+        collectSessionIDs(testResult.getClassName(), sessions);
+        collectSessionIDs(testResult.getFullName(), sessions);
         return sessions;
+    }
+
+    static void collectSessionIDs(String text, List<String> sessions) {
+        if (text == null) {
+            return;
+        }
+        Matcher matcher = SESSION_PATTERN.matcher(text);
+        while (matcher.find()) {
+            sessions.add(matcher.group(1));
+        }
     }
 
     @Override
