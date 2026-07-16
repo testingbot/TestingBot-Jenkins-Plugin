@@ -13,7 +13,7 @@
             <a href="${it.reportUrl}&amp;ref=jenkins" target="_blank">View on TestingBot</a>
             <l:ajax>
                 <div>
-                    <iframe src="${it.reportUrl}&amp;ref=jenkins" style="width: 100%; min-height: 100vh; border: none"></iframe>
+                    <iframe src="${it.reportUrl}&amp;ref=jenkins" title="Embedded TestingBot build report" style="width: 100%; min-height: 100vh; border: none"></iframe>
                 </div>
             </l:ajax>
         </l:main-panel>
