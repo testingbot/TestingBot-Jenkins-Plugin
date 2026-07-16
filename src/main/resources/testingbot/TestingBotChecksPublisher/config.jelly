@@ -1,0 +1,9 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+    <f:entry title="Check name (context)" field="name">
+        <f:textbox default="TestingBot"/>
+    </f:entry>
+    <f:entry title="Summary message" field="message">
+        <f:textbox/>
+    </f:entry>
+</j:jelly>

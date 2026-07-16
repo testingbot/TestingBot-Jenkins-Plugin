@@ -20,10 +20,7 @@ import hudson.util.ListBoxModel;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import jenkins.model.Jenkins;
-import jenkins.security.MasterToSlaveCallable;
 import org.jenkinsci.plugins.workflow.steps.BodyExecution;
 import org.jenkinsci.plugins.workflow.steps.BodyExecutionCallback;
 import org.jenkinsci.plugins.workflow.steps.BodyInvoker;
@@ -45,16 +42,6 @@ public class TestingBotTunnelStep extends Step {
 
     /** Env var exposing the (possibly auto-generated) tunnel identifier to the build. */
     public static final String TESTINGBOT_TUNNEL_IDENTIFIER = "TESTINGBOT_TUNNEL_IDENTIFIER";
-
-    /**
-     * Tunnels currently running in this JVM, keyed by tunnel identifier. Replaces the
-     * previous single static {@code App}, which caused concurrent executions on the same
-     * node to corrupt and tear down each other's tunnel.
-     */
-    private static final ConcurrentHashMap<String, App> RUNNING_TUNNELS = new ConcurrentHashMap<>();
-
-    /** Monotonic suffix so multiple tunnels within one run get distinct generated identifiers. */
-    private static final AtomicInteger TUNNEL_SEQ = new AtomicInteger();
 
     private String options;
     private String credentialsId;
@@ -125,59 +112,6 @@ public class TestingBotTunnelStep extends Step {
         }
     }
 
-    private static final class TbStartTunnelHandler extends MasterToSlaveCallable<Void, Exception> {
-
-        private final String key;
-        private final String secret;
-        private final String tunnelOptions;
-        private final String tunnelIdentifier;
-        private final TaskListener listener;
-
-        TbStartTunnelHandler(String key, String secret, String tunnelOptions, String tunnelIdentifier, TaskListener listener) {
-            this.key = key;
-            this.secret = secret;
-            this.tunnelOptions = tunnelOptions;
-            this.tunnelIdentifier = tunnelIdentifier;
-            this.listener = listener;
-        }
-
-        @Override
-        public Void call() throws Exception {
-            App app = new App();
-            try {
-                TunnelManager.start(app, key, secret, tunnelOptions, tunnelIdentifier, listener);
-            } catch (Exception e) {
-                // Startup failed after the App was created; stop it so we don't leak a half-booted tunnel.
-                try {
-                    app.stop();
-                } catch (Exception ignored) {
-                    // best effort
-                }
-                throw e;
-            }
-            RUNNING_TUNNELS.put(tunnelIdentifier, app);
-            return null;
-        }
-    }
-
-    private static final class TbStopTunnelHandler extends MasterToSlaveCallable<Void, Exception> {
-
-        private final String tunnelIdentifier;
-        private final TaskListener listener;
-
-        TbStopTunnelHandler(String tunnelIdentifier, TaskListener listener) {
-            this.tunnelIdentifier = tunnelIdentifier;
-            this.listener = listener;
-        }
-
-        @Override
-        public Void call() {
-            App app = RUNNING_TUNNELS.remove(tunnelIdentifier);
-            TunnelManager.stop(app, listener);
-            return null;
-        }
-    }
-
     public static class TestingBotTunnelStepExecution extends StepExecution {
 
         private static final long serialVersionUID = 1L;
@@ -228,7 +162,7 @@ public class TestingBotTunnelStep extends Step {
             String userIdentifier = TunnelManager.extractTunnelIdentifier(options);
             tunnelIdentifier = (userIdentifier != null && !userIdentifier.isEmpty())
                     ? userIdentifier
-                    : "jenkins-" + run.getParent().getFullName().replace('/', '-') + "-" + run.getNumber() + "-" + TUNNEL_SEQ.incrementAndGet();
+                    : TunnelManager.generateTunnelIdentifier(run.getParent().getFullName(), run.getNumber());
 
             // Resolve secrets on the controller; only plaintext crosses the channel (over the encrypted remoting link).
             String key = tbCredentials.getKey();
@@ -249,7 +183,7 @@ public class TestingBotTunnelStep extends Step {
             env.put("SELENIUM_HOST", hubHost);
             env.put("SELENIUM_PORT", hubPort);
 
-            requireChannel(computer).call(new TbStartTunnelHandler(key, secret, options, tunnelIdentifier, listener));
+            TunnelManager.startOnChannel(requireChannel(computer), key, secret, options, tunnelIdentifier, listener);
 
             try {
                 body = getContext().newBodyInvoker()
@@ -278,21 +212,7 @@ public class TestingBotTunnelStep extends Step {
 
         /** Best-effort tunnel teardown that tolerates an offline agent (no channel). */
         private static void stopTunnelQuietly(Computer computer, String tunnelIdentifier, TaskListener listener) {
-            VirtualChannel channel = computer == null ? null : computer.getChannel();
-            if (channel == null) {
-                RUNNING_TUNNELS.remove(tunnelIdentifier);
-                if (listener != null) {
-                    listener.getLogger().println("[TestingBot] Agent offline: remote teardown of tunnel "
-                            + tunnelIdentifier + " could not be performed. It may still be running on the agent "
-                            + "and should stop when the agent process exits (best-effort cleanup).");
-                }
-                return;
-            }
-            try {
-                channel.call(new TbStopTunnelHandler(tunnelIdentifier, listener));
-            } catch (Exception ignored) {
-                // best effort
-            }
+            TunnelManager.stopOnChannel(computer == null ? null : computer.getChannel(), tunnelIdentifier, listener);
         }
 
         @Override

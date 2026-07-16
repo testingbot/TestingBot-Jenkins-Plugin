@@ -150,6 +150,21 @@ node {
 }
 ```
 
+## Publishing results as a GitHub check
+
+The plugin can publish the TestingBot outcome of a build as a GitHub check (✅/❌ on the commit and pull request) through the [Checks API](https://plugins.jenkins.io/checks-api/) plugin.
+
+Add the **Publish TestingBot results as a GitHub check** post-build action (freestyle), or call the `testingbotChecks` step in a pipeline:
+
+```groovy
+testingbotChecks(name: 'TestingBot', message: 'End-to-end tests on TestingBot')
+```
+
+* `name` — the check name (its *context* on the commit/PR). Defaults to `TestingBot`. This is the modern equivalent of the custom context you would set for the GitHub Pull Request Builder Plugin.
+* `message` — an optional summary; when omitted, a summary is generated from the TestingBot sessions in the build. The check links to the embedded TestingBot build report.
+
+The check conclusion reflects the TestingBot sessions found in the build (all passed → success), falling back to the overall build result when no sessions are present. Actual delivery to GitHub is handled by the [GitHub Checks](https://plugins.jenkins.io/github-checks/) plugin together with a GitHub App; if that is not installed, the step is a safe no-op.
+
 ## Configuration as Code (JCasC)
 
 The TestingBot credentials can be configured with the [Configuration as Code](https://plugins.jenkins.io/configuration-as-code/) plugin using the `testingbot` symbol:
