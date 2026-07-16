@@ -55,7 +55,7 @@
     <description>This plugin integrates videos/screenshots of your TestingBot.com Selenium tests</description>
     <groupId>testingbot</groupId>
     <artifactId>testingbot</artifactId>
-    <version>1.23-SNAPSHOT</version>
+    <version>2.0-SNAPSHOT</version>
     <packaging>hpi</packaging>
     <repositories>
         <repository>

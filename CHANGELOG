@@ -1,5 +1,5 @@
-Version 1.23
-2026-07-15
+Version 2.0
+2026-07-16
 
 - Raise baseline to Jenkins 2.541.3 / Java 17, modern parent POM and plugin BOM
 - Fix per-build tunnel isolation: parallel pipeline tunnels no longer corrupt or stop each other
