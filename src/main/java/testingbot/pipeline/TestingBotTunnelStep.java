@@ -58,9 +58,8 @@ public class TestingBotTunnelStep extends Step {
     private String credentialsId;
 
     @DataBoundConstructor
-    public TestingBotTunnelStep(String credentialsId, String options) {
+    public TestingBotTunnelStep(String credentialsId) {
         this.credentialsId = credentialsId;
-        this.options = options;
     }
 
     public String getOptions() {

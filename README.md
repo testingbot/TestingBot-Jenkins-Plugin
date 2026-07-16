@@ -83,9 +83,9 @@ Inside a `testingbotTunnel { }` block only (these describe the tunnel started fo
 
 Each `testingbotTunnel { }` block starts an isolated tunnel with its own identifier, so parallel pipeline branches no longer interfere with one another.
 
-An example:
+### Declarative Pipeline example
 
-```
+```groovy
 pipeline {
    agent any
 
@@ -120,6 +120,43 @@ pipeline {
    }
 }
 ```
+
+### Scripted Pipeline example
+
+```groovy
+node {
+    git 'https://github.com/testingbot/Jenkins-Demo.git'
+
+    // Inject credentials and start an isolated tunnel around the tests
+    testingbot('251ca561abdfewf285') {
+        testingbotTunnel(credentialsId: '251ca561abdfewf285', options: "--tunnel-identifier ci-${env.BUILD_NUMBER}") {
+            sh 'ant test'
+        }
+    }
+
+    junit 'test-reports/*.xml'
+    // Embed TestingBot screenshots/video into the test report
+    testingbotPublisher()
+}
+```
+
+## Configuration as Code (JCasC)
+
+The TestingBot credentials can be configured with the [Configuration as Code](https://plugins.jenkins.io/configuration-as-code/) plugin using the `testingbot` symbol:
+
+```yaml
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - testingbot:
+              id: "testingbot"
+              description: "TestingBot key/secret"
+              key: "${TESTINGBOT_KEY}"
+              secret: "${TESTINGBOT_SECRET}"
+```
+
+Reference the `id` (here `testingbot`) as the `credentialsId` in your job or pipeline.
 
 ## Building the Plugin
 
