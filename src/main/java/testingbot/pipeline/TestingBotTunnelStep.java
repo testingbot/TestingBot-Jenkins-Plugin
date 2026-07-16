@@ -14,6 +14,7 @@ import hudson.model.Node;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.model.TopLevelItem;
+import hudson.remoting.VirtualChannel;
 import hudson.security.ACL;
 import hudson.util.ListBoxModel;
 import java.util.ArrayList;
@@ -221,7 +222,12 @@ public class TestingBotTunnelStep extends Step {
                 run.addAction(new TestingBotBuildAction(tbCredentials));
             }
 
-            tunnelIdentifier = "jenkins-" + job.getName() + "-" + run.getNumber() + "-" + TUNNEL_SEQ.incrementAndGet();
+            // Respect a user-supplied --tunnel-identifier (their Selenium/Appium capabilities may
+            // target it); otherwise generate a unique one so parallel tunnels stay isolated.
+            String userIdentifier = TunnelManager.extractTunnelIdentifier(options);
+            tunnelIdentifier = (userIdentifier != null && !userIdentifier.isEmpty())
+                    ? userIdentifier
+                    : "jenkins-" + run.getParent().getFullName().replace('/', '-') + "-" + run.getNumber() + "-" + TUNNEL_SEQ.incrementAndGet();
 
             // Resolve secrets on the controller; only plaintext crosses the channel (over the encrypted remoting link).
             String key = tbCredentials.getKey();
@@ -239,7 +245,7 @@ public class TestingBotTunnelStep extends Step {
             env.put("SELENIUM_HOST", hubHost);
             env.put("SELENIUM_PORT", hubPort);
 
-            computer.getChannel().call(new TbStartTunnelHandler(key, secret, options, tunnelIdentifier, listener));
+            requireChannel(computer).call(new TbStartTunnelHandler(key, secret, options, tunnelIdentifier, listener));
 
             try {
                 body = getContext().newBodyInvoker()
@@ -251,15 +257,38 @@ public class TestingBotTunnelStep extends Step {
             } catch (Exception e) {
                 // The tunnel started but the body could not be invoked; stop it now, otherwise the
                 // Callback that would normally stop it never runs and the tunnel leaks.
-                try {
-                    computer.getChannel().call(new TbStopTunnelHandler(tunnelIdentifier, listener));
-                } catch (Exception ignored) {
-                    // best effort
-                }
+                stopTunnelQuietly(computer, tunnelIdentifier, listener);
                 throw e;
             }
 
             return false;
+        }
+
+        private static VirtualChannel requireChannel(Computer computer) throws Exception {
+            VirtualChannel channel = computer == null ? null : computer.getChannel();
+            if (channel == null) {
+                throw new Exception("The agent is offline; cannot start the TestingBot tunnel");
+            }
+            return channel;
+        }
+
+        /** Best-effort tunnel teardown that tolerates an offline agent (no channel). */
+        private static void stopTunnelQuietly(Computer computer, String tunnelIdentifier, TaskListener listener) {
+            VirtualChannel channel = computer == null ? null : computer.getChannel();
+            if (channel == null) {
+                RUNNING_TUNNELS.remove(tunnelIdentifier);
+                if (listener != null) {
+                    listener.getLogger().println("[TestingBot] Agent offline: remote teardown of tunnel "
+                            + tunnelIdentifier + " could not be performed. It may still be running on the agent "
+                            + "and should stop when the agent process exits (best-effort cleanup).");
+                }
+                return;
+            }
+            try {
+                channel.call(new TbStopTunnelHandler(tunnelIdentifier, listener));
+            } catch (Exception ignored) {
+                // best effort
+            }
         }
 
         @Override
@@ -286,7 +315,7 @@ public class TestingBotTunnelStep extends Step {
             protected void finished(StepContext context) throws Exception {
                 TaskListener listener = context.get(TaskListener.class);
                 Computer computer = context.get(Computer.class);
-                computer.getChannel().call(new TbStopTunnelHandler(tunnelIdentifier, listener));
+                stopTunnelQuietly(computer, tunnelIdentifier, listener);
             }
         }
     }
