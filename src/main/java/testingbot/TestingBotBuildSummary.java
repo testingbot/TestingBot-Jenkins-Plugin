@@ -87,9 +87,10 @@ public class TestingBotBuildSummary extends InvisibleAction implements Serializa
                         ids.add(tbo);
                     } catch (RuntimeException e) {
                         // A single bad session id (typo, wrong account, expired/purged session) must not
-                        // drop the report for the other valid sessions in this build.
+                        // drop the report for the other valid sessions in this build. Log at WARNING so
+                        // the failed lookup is visible (unlike the normal "no session" case).
                         Logger.getLogger(TestingBotBuildSummary.class.getName())
-                                .log(Level.FINE, "Skipping TestingBot session " + sessionId, e);
+                                .log(Level.WARNING, "Skipping TestingBot session " + sessionId, e);
                     }
                 }
             }

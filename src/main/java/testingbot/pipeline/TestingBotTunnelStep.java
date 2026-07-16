@@ -278,7 +278,9 @@ public class TestingBotTunnelStep extends Step {
             if (channel == null) {
                 RUNNING_TUNNELS.remove(tunnelIdentifier);
                 if (listener != null) {
-                    listener.getLogger().println("[TestingBot] Agent offline; could not stop tunnel " + tunnelIdentifier);
+                    listener.getLogger().println("[TestingBot] Agent offline: remote teardown of tunnel "
+                            + tunnelIdentifier + " could not be performed. It may still be running on the agent "
+                            + "and should stop when the agent process exits (best-effort cleanup).");
                 }
                 return;
             }
