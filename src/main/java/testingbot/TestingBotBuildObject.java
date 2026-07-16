@@ -3,6 +3,7 @@ package testingbot;
 import com.testingbot.models.TestingbotTest;
 
 import java.io.Serializable;
+import java.util.List;
 
 public class TestingBotBuildObject implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -12,6 +13,7 @@ public class TestingBotBuildObject implements Serializable {
     private final boolean isPassed;
     private String authHash;
     private String environmentName;
+    private String thumbUrl;
 
     public TestingBotBuildObject(String sessionId, String className, String testName, boolean isPassed, String authHash, TestingbotTest test) {
       this.sessionId = sessionId;
@@ -19,9 +21,25 @@ public class TestingBotBuildObject implements Serializable {
       this.testName = testName;
       this.isPassed = isPassed;
       this.authHash = authHash;
-      // TestingbotTest is only used here to derive the environment label; it is not stored (it is not
-      // marshalable under the JEP-200 class filter, and nothing reads it afterwards).
-      this.environmentName = test == null ? "" : test.getBrowser() + " | " + test.getOs();
+      // TestingbotTest is only used here to derive display fields; it is not stored (it is not
+      // marshalable under the JEP-200 class filter, and nothing reads it afterwards). Only the derived
+      // Strings are kept, which marshal cleanly.
+      if (test == null) {
+        this.environmentName = "";
+        this.thumbUrl = "";
+      } else {
+        this.environmentName = test.getBrowser() + " | " + test.getOs();
+        List<String> thumbs = test.getThumbs();
+        this.thumbUrl = (test.isAssetsAvailable() && thumbs != null && !thumbs.isEmpty()) ? thumbs.get(0) : "";
+      }
+    }
+
+    /**
+     * @return a preview thumbnail URL for the session, or an empty string when no assets are available.
+     */
+    public String getThumbUrl() {
+        // Null-safe for build.xml records persisted before this field existed (deserialized as null).
+        return thumbUrl == null ? "" : thumbUrl;
     }
 
     /**

@@ -54,6 +54,8 @@ An example on how to do this: `((RemoteWebDriver) driver).getSessionId().toStrin
 
 A full example that you can use is available on our GitHub [Jenkins-Demo](https://github.com/testingbot/Jenkins-Demo) page.
 
+On the build page, each JUnit test that used TestingBot is shown with a preview thumbnail of its session (the first one, if a test records several) and expands in place to the full session media (video screencast, screenshots and logs) — no need to leave Jenkins. The embedded media loads lazily, so collapsed sessions stay lightweight.
+
 ## Embedded TestingBot Build report
 
 Whenever the plugin injects credentials — through the freestyle **Build Environment** option or the `testingbot { }` / `testingbotTunnel { }` pipeline steps — it exposes a `TESTINGBOT_BUILD` environment variable and adds a **TestingBot Build** page to the build.
