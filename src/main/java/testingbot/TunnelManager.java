@@ -149,6 +149,58 @@ public final class TunnelManager {
     }
 
     /**
+     * Classifies {@code rawOptions} and returns the tokens that {@link #applyOptions} would ignore or
+     * reject (unknown flags, flags missing a required value, an invalid {@code --metrics-port}). Used
+     * for config-time form validation so mistakes surface before a build runs. Pure — nothing is
+     * applied. Keep the recognized-flag set in sync with {@link #applyOptions}.
+     */
+    public static List<String> unsupportedOptions(String rawOptions) {
+        List<String> problems = new ArrayList<>();
+        String trimmed = rawOptions == null ? "" : rawOptions.trim();
+        if (trimmed.isEmpty()) {
+            return problems;
+        }
+        String[] tokens = tokenize(trimmed);
+        for (int i = 0; i < tokens.length; i++) {
+            String token = tokens[i];
+            switch (token) {
+                case "-d":
+                case "--debug":
+                    break;
+                case "-i":
+                case "--tunnel-identifier":
+                case "-Y":
+                case "--proxy":
+                case "-z":
+                case "--proxy-userpwd":
+                case "-a":
+                case "--auth":
+                    if (hasValue(tokens, i)) {
+                        i++;
+                    } else {
+                        problems.add(token + " (missing value)");
+                    }
+                    break;
+                case "--metrics-port":
+                    if (hasValue(tokens, i)) {
+                        String value = tokens[++i];
+                        try {
+                            Integer.parseInt(value);
+                        } catch (NumberFormatException nfe) {
+                            problems.add(token + " " + value + " (invalid value)");
+                        }
+                    } else {
+                        problems.add(token + " (missing value)");
+                    }
+                    break;
+                default:
+                    problems.add(token);
+            }
+        }
+        return problems;
+    }
+
+    /**
      * Returns the value of a user-supplied {@code --tunnel-identifier} / {@code -i} option, or
      * {@code null} if the options don't specify one.
      */
