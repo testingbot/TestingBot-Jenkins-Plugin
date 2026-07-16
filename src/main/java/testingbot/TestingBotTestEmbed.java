@@ -2,18 +2,14 @@ package testingbot;
 
 import hudson.model.Run;
 import jenkins.model.RunAction2;
-import org.kohsuke.stapler.Stapler;
-import org.kohsuke.stapler.StaplerRequest;
-import org.kohsuke.stapler.StaplerResponse;
+import org.kohsuke.stapler.StaplerRequest2;
+import org.kohsuke.stapler.StaplerResponse2;
 
-import javax.servlet.ServletException;
+import jakarta.servlet.ServletException;
 import java.io.IOException;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class TestingBotTestEmbed implements RunAction2 {
-    private static final Logger logger = Logger.getLogger(TestingBotTestEmbed.class.getName());
     private transient Run run;
     private List<TestingBotBuildObject> ids;
     private TestingBotBuildObject tbo;
@@ -48,32 +44,28 @@ public class TestingBotTestEmbed implements RunAction2 {
     }
 
     /**
-     *
      * @param req Standard Request Object
      * @param rsp Standard Response Object
-     * @throws IOException Unable to load show.jelly template
+     * @throws IOException Unable to load the view template
      */
     @SuppressWarnings("unused") // used by stapler
-    public void doIndex(StaplerRequest req, StaplerResponse rsp)
+    public void doIndex(StaplerRequest2 req, StaplerResponse2 rsp)
             throws IOException {
         String sessionId = req.getParameter("sessionId");
-        for (TestingBotBuildObject tbo : this.ids) {
-            if (tbo.getSessionId().equals(sessionId)) {
-                this.tbo = tbo;
+        // Reset the selection each request so a subsequent unmatched request does not render a
+        // previously-selected session's media (this action is shared across requests for the run).
+        TestingBotBuildObject selected = null;
+        for (TestingBotBuildObject candidate : this.ids) {
+            if (candidate.getSessionId().equals(sessionId)) {
+                selected = candidate;
+                break;
             }
         }
-        if (this.tbo != null) {
-            try {
-                req.getView(this, "show.jelly").forward(req, rsp);
-            } catch (ServletException e) {
-                throw new IOException(e);
-            }
-        } else {
-            try {
-                req.getView(this, "index.jelly").forward(req, rsp);
-            } catch (ServletException e) {
-                throw new IOException(e);
-            }
+        this.tbo = selected;
+        try {
+            req.getView(this, selected != null ? "show.jelly" : "index.jelly").forward(req, rsp);
+        } catch (ServletException e) {
+            throw new IOException(e);
         }
     }
 
