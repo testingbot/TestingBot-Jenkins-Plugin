@@ -54,7 +54,7 @@ An example on how to do this: `((RemoteWebDriver) driver).getSessionId().toStrin
 
 A full example that you can use is available on our GitHub [Jenkins-Demo](https://github.com/testingbot/Jenkins-Demo) page.
 
-On the build page, each TestingBot session is shown with a preview thumbnail and expands in place to the full session media (video screencast, screenshots and logs) — no need to leave Jenkins. Collapsed sessions stay lightweight; the media only loads when a session is expanded.
+On the build page, each TestingBot session is shown with a preview thumbnail and expands in place to the full session media (video screencast, screenshots and logs) — no need to leave Jenkins. The embedded media loads lazily, so collapsed sessions stay lightweight.
 
 ## Pipeline
 The plugin offers pipeline support, which can be used with a Jenkinsfile.
