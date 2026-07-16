@@ -1,0 +1,5 @@
+# Inherit the shared Jenkins release-drafter configuration (category/label taxonomy).
+# See https://github.com/jenkinsci/.github/blob/master/.github/release-drafter.yml
+# Under JEP-229 CD, release notes are drafted from merged PR titles + labels; a release is
+# only cut when at least one merged PR carries an "interesting" label (e.g. enhancement, bug).
+_extends: github:jenkinsci/.github:/.github/release-drafter.yml
