@@ -24,7 +24,9 @@ import com.cloudbees.plugins.credentials.domains.Domain;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import com.cloudbees.plugins.credentials.impl.BaseStandardCredentials;
 import com.testingbot.models.TestingbotUser;
+import com.testingbot.testingbotrest.TestingbotApiException;
 import com.testingbot.testingbotrest.TestingbotREST;
+import com.testingbot.testingbotrest.TestingbotUnauthorizedException;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
@@ -334,7 +336,9 @@ Logger.getLogger(TestingBotCredentials.class.getName()).log(Level.INFO, "existin
                 String plan = Util.fixEmptyAndTrim(user.getPlan());
                 return FormValidation.ok("Connection successful — signed in as %s%s",
                         user.getEmail(), plan != null ? " (" + plan + " plan)" : "");
-            } catch (Exception e) {
+            } catch (TestingbotUnauthorizedException | TestingbotApiException e) {
+                // The REST client's typed failures: bad key/secret, and network/parse errors (it wraps
+                // IOException into TestingbotApiException). Unexpected runtime exceptions propagate.
                 return FormValidation.error("TestingBot authentication failed: " + e.getMessage());
             }
         }
