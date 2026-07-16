@@ -56,4 +56,37 @@ public class TunnelManagerOptionsTest {
         TunnelManager.applyOptions(app, "   ", TaskListener.NULL);
         assertThat(app.isDebugMode()).isFalse();
     }
+
+    private static String applyAndCapture(App app, String options) throws Exception {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        TunnelManager.applyOptions(app, options, new StreamTaskListener(out, StandardCharsets.UTF_8));
+        return out.toString("UTF-8");
+    }
+
+    @Test
+    public void reportsMissingValueForEveryValueTakingOptionAtEnd() throws Exception {
+        // Each value-taking option at the end of the string has no value: it must be reported, not silently skipped.
+        assertThat(applyAndCapture(new App(), "--tunnel-identifier")).contains("tunnel-identifier", "missing value");
+        assertThat(applyAndCapture(new App(), "--proxy")).contains("proxy", "missing value");
+        assertThat(applyAndCapture(new App(), "--proxy-userpwd")).contains("proxy-userpwd", "missing value");
+        assertThat(applyAndCapture(new App(), "--metrics-port")).contains("metrics-port", "missing value");
+        assertThat(applyAndCapture(new App(), "--auth")).contains("auth", "missing value");
+    }
+
+    @Test
+    public void reportsMissingValueWhenFollowedByAnotherFlagAndStillAppliesTheFlag() throws Exception {
+        App app = new App();
+        // --proxy is missing its value (next token is a flag) → reported; --debug still applies.
+        String log = applyAndCapture(app, "--proxy --debug");
+        assertThat(app.getProxy()).isNull();
+        assertThat(app.isDebugMode()).isTrue();
+        assertThat(log).contains("proxy", "missing value");
+    }
+
+    @Test
+    public void reportsInvalidMetricsPort() throws Exception {
+        App app = new App();
+        String log = applyAndCapture(app, "--metrics-port notanumber");
+        assertThat(log).contains("metrics-port", "invalid value");
+    }
 }

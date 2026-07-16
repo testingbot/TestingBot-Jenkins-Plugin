@@ -73,7 +73,7 @@ public final class TunnelManager {
             return;
         }
         String[] tokens = tokenize(trimmed);
-        List<String> unsupported = new ArrayList<>();
+        List<String> ignored = new ArrayList<>();
         for (int i = 0; i < tokens.length; i++) {
             String token = tokens[i];
             switch (token) {
@@ -85,18 +85,24 @@ public final class TunnelManager {
                 case "--tunnel-identifier":
                     if (hasValue(tokens, i)) {
                         app.setTunnelIdentifier(tokens[++i]);
+                    } else {
+                        ignored.add(token + " (missing value)");
                     }
                     break;
                 case "-Y":
                 case "--proxy":
                     if (hasValue(tokens, i)) {
                         app.setProxy(tokens[++i]);
+                    } else {
+                        ignored.add(token + " (missing value)");
                     }
                     break;
                 case "-z":
                 case "--proxy-userpwd":
                     if (hasValue(tokens, i)) {
                         app.setProxyAuth(tokens[++i]);
+                    } else {
+                        ignored.add(token + " (missing value)");
                     }
                     break;
                 case "--metrics-port":
@@ -105,23 +111,27 @@ public final class TunnelManager {
                         try {
                             app.setMetricsPort(Integer.parseInt(value));
                         } catch (NumberFormatException nfe) {
-                            unsupported.add(token + " " + value);
+                            ignored.add(token + " " + value + " (invalid value)");
                         }
+                    } else {
+                        ignored.add(token + " (missing value)");
                     }
                     break;
                 case "-a":
                 case "--auth":
                     if (hasValue(tokens, i)) {
                         app.setBasicAuth(new String[]{tokens[++i]});
+                    } else {
+                        ignored.add(token + " (missing value)");
                     }
                     break;
                 default:
-                    unsupported.add(token);
+                    ignored.add(token);
             }
         }
-        if (!unsupported.isEmpty()) {
-            listener.getLogger().println("[TestingBot] Ignoring unsupported tunnel option(s): "
-                    + String.join(" ", unsupported));
+        if (!ignored.isEmpty()) {
+            listener.getLogger().println("[TestingBot] Ignoring invalid or unsupported tunnel option(s): "
+                    + String.join(", ", ignored));
         }
     }
 
