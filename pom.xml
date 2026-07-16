@@ -7,6 +7,9 @@
         <version>5.31</version>
     </parent>
     <properties>
+        <!-- Incrementals (JEP-229) versioning: releases become 2.<git-count>.v<hash>, snapshots 2.999999-SNAPSHOT. -->
+        <revision>2</revision>
+        <changelist>999999-SNAPSHOT</changelist>
         <jenkins.version>2.541.3</jenkins.version>
         <gitHubRepo>jenkinsci/testingbot-plugin</gitHubRepo>
         <hudsonTags>buildwrapper</hudsonTags>
@@ -55,7 +58,7 @@
     <description>This plugin integrates videos/screenshots of your TestingBot.com Selenium tests</description>
     <groupId>testingbot</groupId>
     <artifactId>testingbot</artifactId>
-    <version>2.0-SNAPSHOT</version>
+    <version>${revision}.${changelist}</version>
     <packaging>hpi</packaging>
     <repositories>
         <repository>
