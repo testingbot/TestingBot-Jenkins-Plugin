@@ -1,0 +1,21 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout" xmlns:st="jelly:stapler">
+    <l:layout title="TestingBot Build">
+        <l:side-panel>
+            <st:include page="sidepanel.jelly" it="${it.run}" optional="true" />
+        </l:side-panel>
+        <l:main-panel>
+            <h1>TestingBot Build</h1>
+            <p>
+                All TestingBot sessions run under this build (tests using
+                <code>build=${it.buildId}</code>, exposed as <code>$TESTINGBOT_BUILD</code>).
+            </p>
+            <a href="${it.reportUrl}&amp;ref=jenkins" target="_blank">View on TestingBot</a>
+            <l:ajax>
+                <div>
+                    <iframe src="${it.reportUrl}&amp;ref=jenkins" style="width: 100%; min-height: 100vh; border: none"></iframe>
+                </div>
+            </l:ajax>
+        </l:main-panel>
+    </l:layout>
+</j:jelly>

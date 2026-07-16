@@ -30,6 +30,7 @@ import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.verb.POST;
 import testingbot.TestingBotBuildAction;
+import testingbot.TestingBotBuildReportAction;
 import testingbot.TestingBotCredentials;
 import testingbot.TunnelManager;
 
@@ -87,6 +88,9 @@ public class TestingBotStep extends Step {
             if (run.getAction(TestingBotBuildAction.class) == null) {
                 run.addAction(new TestingBotBuildAction(credentials));
             }
+            // Expose the build id and add the embeddable build-report page so all sessions using
+            // build=$TESTINGBOT_BUILD are grouped and viewable inside Jenkins.
+            env.put(TestingBotBuildReportAction.TESTINGBOT_BUILD, TestingBotBuildReportAction.attach(run, credentials));
 
             body = context.newBodyInvoker()
                     .withContext(credentials)
