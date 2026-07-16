@@ -4,12 +4,16 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.testingbot.tunnel.Api;
 import com.testingbot.tunnel.App;
 import hudson.model.TaskListener;
+import hudson.remoting.VirtualChannel;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import jenkins.security.MasterToSlaveCallable;
 
 /**
  * Shared TestingBot Tunnel lifecycle helper used by both the freestyle
@@ -201,6 +205,117 @@ public final class TunnelManager {
         if (app != null) {
             listener.getLogger().println("Stopping TestingBot Tunnel");
             app.stop();
+        }
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Remote (agent) tunnel lifecycle.
+    //
+    // The tunnel must boot on the same node where the tests run, so that a test connecting to
+    // {@code localhost} reaches the tunnel. Both the freestyle build wrapper and the pipeline step
+    // therefore run the tunnel inside a MasterToSlaveCallable on the build node's channel. The live
+    // App is kept in a per-JVM static registry (co-located with the tunnel on the agent) so teardown
+    // can find and stop it again without serializing the handle back across the channel.
+    // ------------------------------------------------------------------------------------------
+
+    /** Tunnels running in this JVM, keyed by tunnel identifier. Lives in the agent's static space. */
+    private static final ConcurrentHashMap<String, App> RUNNING_TUNNELS = new ConcurrentHashMap<>();
+
+    /** Monotonic suffix so multiple generated identifiers within one run stay distinct. */
+    private static final AtomicInteger TUNNEL_SEQ = new AtomicInteger();
+
+    /**
+     * Generates a tunnel identifier unique to a build (and to each tunnel within it), so that
+     * parallel tunnels on the same node stay isolated.
+     */
+    public static String generateTunnelIdentifier(String jobFullName, int buildNumber) {
+        return "jenkins-" + jobFullName.replace('/', '-') + "-" + buildNumber + "-" + TUNNEL_SEQ.incrementAndGet();
+    }
+
+    /**
+     * Boots a tunnel on the given channel's node and registers it under {@code tunnelIdentifier}.
+     * Credentials are passed as already-decrypted strings (only plaintext crosses the encrypted
+     * remoting link, never the credential object).
+     */
+    public static void startOnChannel(VirtualChannel channel, String key, String secret, String options,
+            String tunnelIdentifier, TaskListener listener) throws Exception {
+        channel.call(new StartTunnelHandler(key, secret, options, tunnelIdentifier, listener));
+    }
+
+    /**
+     * Stops the tunnel registered under {@code tunnelIdentifier} on the given channel's node.
+     * Best-effort: a {@code null} channel (offline agent) or a remoting failure is tolerated so a
+     * teardown never fails the build; an offline agent is reported to the log.
+     */
+    public static void stopOnChannel(VirtualChannel channel, String tunnelIdentifier, TaskListener listener) {
+        if (channel == null) {
+            RUNNING_TUNNELS.remove(tunnelIdentifier);
+            if (listener != null) {
+                listener.getLogger().println("[TestingBot] Agent offline: remote teardown of tunnel "
+                        + tunnelIdentifier + " could not be performed. It may still be running on the agent "
+                        + "and should stop when the agent process exits (best-effort cleanup).");
+            }
+            return;
+        }
+        try {
+            channel.call(new StopTunnelHandler(tunnelIdentifier, listener));
+        } catch (Exception ignored) {
+            // best effort
+        }
+    }
+
+    private static final class StartTunnelHandler extends MasterToSlaveCallable<Void, Exception> {
+
+        private static final long serialVersionUID = 1L;
+        private final String key;
+        private final String secret;
+        private final String tunnelOptions;
+        private final String tunnelIdentifier;
+        private final TaskListener listener;
+
+        StartTunnelHandler(String key, String secret, String tunnelOptions, String tunnelIdentifier, TaskListener listener) {
+            this.key = key;
+            this.secret = secret;
+            this.tunnelOptions = tunnelOptions;
+            this.tunnelIdentifier = tunnelIdentifier;
+            this.listener = listener;
+        }
+
+        @Override
+        public Void call() throws Exception {
+            App app = new App();
+            try {
+                start(app, key, secret, tunnelOptions, tunnelIdentifier, listener);
+            } catch (Exception e) {
+                // Startup failed after the App was created; stop it so we don't leak a half-booted tunnel.
+                try {
+                    app.stop();
+                } catch (Exception ignored) {
+                    // best effort
+                }
+                throw e;
+            }
+            RUNNING_TUNNELS.put(tunnelIdentifier, app);
+            return null;
+        }
+    }
+
+    private static final class StopTunnelHandler extends MasterToSlaveCallable<Void, Exception> {
+
+        private static final long serialVersionUID = 1L;
+        private final String tunnelIdentifier;
+        private final TaskListener listener;
+
+        StopTunnelHandler(String tunnelIdentifier, TaskListener listener) {
+            this.tunnelIdentifier = tunnelIdentifier;
+            this.listener = listener;
+        }
+
+        @Override
+        public Void call() {
+            App app = RUNNING_TUNNELS.remove(tunnelIdentifier);
+            stop(app, listener);
+            return null;
         }
     }
 }

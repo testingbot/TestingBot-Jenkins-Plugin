@@ -23,8 +23,10 @@ import hudson.model.BuildableItemWithBuildWrappers;
 import hudson.model.Job;
 import hudson.model.Item;
 import hudson.model.listeners.ItemListener;
+import hudson.remoting.VirtualChannel;
 import hudson.security.ACL;
 import hudson.util.DescribableList;
+import testingbot.pipeline.TestingBotTunnelStep;
 import java.util.Map;
 import hudson.util.ListBoxModel;
 import java.util.ArrayList;
@@ -92,24 +94,45 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
         if (this.useTunnel) {
             if (credentials == null) {
                 listener.getLogger().println("No TestingBot key/secret found while trying to start a TestingBot Tunnel");
-                return new TestingBotBuildEnvironment(null, null, null);
+                return new TestingBotBuildEnvironment(null, buildId, null, null, null);
             }
 
+            // Run the tunnel on the build's node (not the controller) so that a test connecting to
+            // localhost reaches the tunnel. The identifier keeps parallel builds on one node isolated.
+            String tunnelIdentifier = TunnelManager.generateTunnelIdentifier(build.getParent().getFullName(), build.getNumber());
+            String key = credentials.getKey();
+            String secret = credentials.getDecryptedSecret();
+            VirtualChannel channel = launcher.getChannel();
+
+            if (channel != null) {
+                try {
+                    TunnelManager.startOnChannel(channel, key, secret, "", tunnelIdentifier, listener);
+                } catch (InterruptedException ie) {
+                    TunnelManager.stopOnChannel(channel, tunnelIdentifier, listener);
+                    throw ie;
+                } catch (Exception ex) {
+                    // Do not continue the build with a broken tunnel: clean up and fail.
+                    TunnelManager.stopOnChannel(channel, tunnelIdentifier, listener);
+                    throw new IOException("Failed to start TestingBot tunnel", ex);
+                }
+                return new TestingBotBuildEnvironment(credentials, buildId, tunnelIdentifier, channel, null);
+            }
+
+            // No agent channel available (unusual launcher); fall back to a controller-local tunnel.
             final App app = new App();
             try {
-                TunnelManager.start(app, credentials.getKey(), credentials.getDecryptedSecret(), "", null, listener);
+                TunnelManager.start(app, key, secret, "", tunnelIdentifier, listener);
             } catch (InterruptedException ie) {
                 TunnelManager.stop(app, listener);
                 throw ie;
             } catch (Exception ex) {
-                // Do not continue the build with a broken tunnel: clean up and fail.
                 TunnelManager.stop(app, listener);
                 throw new IOException("Failed to start TestingBot tunnel", ex);
             }
-            return new TestingBotBuildEnvironment(credentials, app, buildId);
+            return new TestingBotBuildEnvironment(credentials, buildId, tunnelIdentifier, null, app);
         }
 
-        return new TestingBotBuildEnvironment(credentials, null, buildId);
+        return new TestingBotBuildEnvironment(credentials, buildId, null, null, null);
     }
 
     /**
@@ -151,14 +174,22 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
 
     private class TestingBotBuildEnvironment extends BuildWrapper.Environment {
 
-        private final App app;
         private final TestingBotCredentials credentials;
         private final String buildId;
+        /** Non-null when a tunnel was started for this build. */
+        private final String tunnelIdentifier;
+        /** Agent channel the tunnel runs on; null when the tunnel runs controller-locally (see {@link #localApp}). */
+        private final VirtualChannel channel;
+        /** Controller-local tunnel handle, used only in the no-channel fallback. */
+        private final App localApp;
 
-        public TestingBotBuildEnvironment(TestingBotCredentials credentials, @Nullable App app, @Nullable String buildId) {
+        public TestingBotBuildEnvironment(TestingBotCredentials credentials, @Nullable String buildId,
+                @Nullable String tunnelIdentifier, @Nullable VirtualChannel channel, @Nullable App localApp) {
             this.credentials = credentials;
-            this.app = app;
             this.buildId = buildId;
+            this.tunnelIdentifier = tunnelIdentifier;
+            this.channel = channel;
+            this.localApp = localApp;
         }
 
         @Override
@@ -171,8 +202,9 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
                 env.put(TestingBotBuildReportAction.TESTINGBOT_BUILD, buildId);
             }
 
-            if (app != null) {
-                env.put(TESTINGBOT_TUNNEL,"true");
+            if (tunnelIdentifier != null) {
+                env.put(TESTINGBOT_TUNNEL, "true");
+                env.put(TestingBotTunnelStep.TESTINGBOT_TUNNEL_IDENTIFIER, tunnelIdentifier);
             }
 
             super.buildEnvVars(env);
@@ -180,7 +212,13 @@ public final class TestingBotBuildWrapper extends BuildWrapper {
 
         @Override
         public boolean tearDown(AbstractBuild build, BuildListener listener) throws IOException, InterruptedException {
-            TunnelManager.stop(app, listener);
+            if (tunnelIdentifier != null) {
+                if (channel != null) {
+                    TunnelManager.stopOnChannel(channel, tunnelIdentifier, listener);
+                } else {
+                    TunnelManager.stop(localApp, listener);
+                }
+            }
             return true;
         }
     }
