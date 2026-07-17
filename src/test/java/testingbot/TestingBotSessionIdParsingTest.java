@@ -32,8 +32,9 @@ public class TestingBotSessionIdParsingTest {
     public void capturesMultipleSessionIds() {
         List<String> found = new ArrayList<>();
         TestingBotReportFactory.collectSessionIDs(
-                "TestingBotSessionID=aaa-111\nTestingBotSessionID=bbb-222", found);
-        assertThat(found).containsExactly("aaa-111", "bbb-222");
+                "TestingBotSessionID=aaa-111\nTestingBotSessionID=bbb-222\nTestingBotSessionID=abc_def-123",
+                found);
+        assertThat(found).containsExactly("aaa-111", "bbb-222", "abc_def-123");
     }
 
     @Test
