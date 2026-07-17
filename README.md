@@ -24,7 +24,7 @@ Once installed, go to **Manage Jenkins > Configure System**, scroll down to wher
 
 ![credentials](https://github.com/jenkinsci/testingbot-plugin/raw/master/help/credentials.png)
 
-The plugin uses the Credentials plugin. Click the 'Add' button and enter your key and secret, which you can obtain from the [TestingBot Member area](https://testingbot.com/members).
+The plugin uses the Credentials plugin. Click the 'Add' button and enter your key and secret, which you can obtain from the [TestingBot Member area](https://testingbot.com/members). Use **Test Connection** to verify your key and secret before saving.
 
 ## Configuring a Job to use the TestingBot Plugin
 ![build environment](https://github.com/jenkinsci/testingbot-plugin/raw/master/help/buildenv.png)
@@ -37,13 +37,9 @@ If you want to see the test results (screenshots, logs and a video screencast of
 
 The plugin will parse the JUnit test result files in the post-build step to associate test results with TestingBot jobs. Please make sure that JUnit plugin is installed.
 
+Add the **Publish JUnit test result report** post-build action and point it at your report files (for example `test-reports/*.xml`). Then, under **Additional test report features**, add **Embed TestingBot reports**.
+
 ![postbuild action](https://github.com/jenkinsci/testingbot-plugin/raw/master/help/postbuild.png)
-
-Click on **Add post-build action** in **Post-build Actions**. Make sure you enable **Publish JUnit test result report** and point to the correct test report files (for example `test-reports/*.xml`).
-
-![publisher](https://github.com/jenkinsci/testingbot-plugin/raw/master/help/publisher.png)
-
-Select the **Run TestingBot Test Publisher** option from the **Post Build Action** list.
 
 The TestingBot plugin will parse both `stdout` and `stderr`, looking for lines that have this format:
 `TestingBotSessionID=<sessionId>`
@@ -76,6 +72,10 @@ The `testingbotTunnel()` command requires both a `credentialId` and `options`. T
 This will start the tunnel before your job runs. Once the job finishes, the tunnel will be shutdown.
 
 `testingbotPublisher()` will try to read the JUnit report files and show the test results from TestingBot.
+
+You can build these steps interactively with the Jenkins **Pipeline Syntax** (Snippet Generator):
+
+![pipeline snippet generator](https://github.com/jenkinsci/testingbot-plugin/raw/master/help/snippet-generator.png)
 
 ### Environment variables
 
@@ -155,6 +155,8 @@ node {
 The plugin can publish the TestingBot outcome of a build as a GitHub check (✅/❌ on the commit and pull request) through the [Checks API](https://plugins.jenkins.io/checks-api/) plugin.
 
 Add the **Publish TestingBot results as a GitHub check** post-build action (freestyle), or call the `testingbotChecks` step in a pipeline:
+
+![github check](https://github.com/jenkinsci/testingbot-plugin/raw/master/help/testingbot-checks.png)
 
 ```groovy
 testingbotChecks(name: 'TestingBot', message: 'End-to-end tests on TestingBot')
