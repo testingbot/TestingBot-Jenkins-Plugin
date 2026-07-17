@@ -301,26 +301,32 @@ Logger.getLogger(TestingBotCredentials.class.getName()).log(Level.INFO, "existin
             // fromString transparently yields the plaintext either way.
             String plainSecret = Secret.fromString(secret).getPlainText();
             try (TestingbotREST rest = new TestingbotREST(key.trim(), plainSecret)) {
-                TestingbotUser user = rest.getUserInfo();
-                if (user == null) {
-                    return FormValidation.error("Could not verify these credentials with TestingBot.");
-                }
-                // A valid TestingBot account may not expose an email (e.g. sub-accounts); the
-                // authenticated user object itself is proof the key/secret work. Prefer the email,
-                // fall back to the account's first name, so verification never fails on a null email.
-                String who = Util.fixEmptyAndTrim(user.getEmail());
-                if (who == null) {
-                    who = Util.fixEmptyAndTrim(user.getFirstName());
-                }
-                String plan = Util.fixEmptyAndTrim(user.getPlan());
-                return FormValidation.ok("Connection successful%s%s",
-                        who != null ? " — signed in as " + who : "",
-                        plan != null ? " (" + plan + " plan)" : "");
+                return verificationResult(rest.getUserInfo());
             } catch (TestingbotUnauthorizedException | TestingbotApiException e) {
                 // The REST client's typed failures: bad key/secret, and network/parse errors (it wraps
                 // IOException into TestingbotApiException). Unexpected runtime exceptions propagate.
                 return FormValidation.error("TestingBot authentication failed: " + e.getMessage());
             }
+        }
+
+        /**
+         * Builds the user-facing result for a fetched {@link TestingbotUser}. A null user means the
+         * credentials could not be verified; otherwise any authenticated user is a success. A valid
+         * account may not expose an email (e.g. sub-accounts), so prefer the email but fall back to
+         * the account's first name, and treat both the identity and the plan as optional.
+         */
+        static FormValidation verificationResult(TestingbotUser user) {
+            if (user == null) {
+                return FormValidation.error("Could not verify these credentials with TestingBot.");
+            }
+            String who = Util.fixEmptyAndTrim(user.getEmail());
+            if (who == null) {
+                who = Util.fixEmptyAndTrim(user.getFirstName());
+            }
+            String plan = Util.fixEmptyAndTrim(user.getPlan());
+            return FormValidation.ok("Connection successful%s%s",
+                    who != null ? " — signed in as " + who : "",
+                    plan != null ? " (" + plan + " plan)" : "");
         }
     }
 
