@@ -3,13 +3,8 @@
         <c:select default="${descriptor.getCredentialsId()}"/>
     </f:entry>
 
-   <f:optionalBlock>
-        <f:entry field="useTunnel">
-            <f:checkbox title="${%Enable TestingBot Tunnel?}" checked="${instance.useTunnel == true}" />
-            <f:block>
-                <small>Note: Skip this if you are using TestingBot Tunnel in your code.</small>
-            </f:block>
-        </f:entry>
-    </f:optionalBlock>
+    <f:entry field="useTunnel">
+        <f:checkbox title="${%Enable TestingBot Tunnel?}"/>
+    </f:entry>
 
 </j:jelly>
