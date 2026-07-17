@@ -7,7 +7,6 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.verb.POST;
 
-import com.cloudbees.plugins.credentials.BaseCredentials;
 import com.cloudbees.plugins.credentials.Credentials;
 import com.cloudbees.plugins.credentials.CredentialsDescriptor;
 import com.cloudbees.plugins.credentials.CredentialsMatcher;
@@ -28,7 +27,6 @@ import com.testingbot.testingbotrest.TestingbotApiException;
 import com.testingbot.testingbotrest.TestingbotREST;
 import com.testingbot.testingbotrest.TestingbotUnauthorizedException;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
-import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.Util;
 import hudson.model.AbstractItem;
@@ -56,19 +54,15 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @NameWith(value = TestingBotCredentials.NameProvider.class)
-public class TestingBotCredentials extends BaseCredentials implements StandardCredentials {
+public class TestingBotCredentials extends BaseStandardCredentials {
     private static final String CREDENTIAL_DISPLAY_NAME = "TestingBot";
 
-    private final String id;
-    private final String description;
     private final String key;
     private final Secret secret;
 
     @DataBoundConstructor
     public TestingBotCredentials(String id, String description, String key, String secret) {
-        super(CredentialsScope.GLOBAL);
-        this.id = IdCredentials.Helpers.fixEmptyId(id);
-        this.description = Util.fixNull(description);
+        super(CredentialsScope.GLOBAL, IdCredentials.Helpers.fixEmptyId(id), Util.fixNull(description));
         this.key = Util.fixNull(key);
         this.secret = Secret.fromString(secret);
     }
@@ -84,28 +78,6 @@ public class TestingBotCredentials extends BaseCredentials implements StandardCr
 
     public String getDecryptedSecret() {
         return secret.getPlainText();
-    }
-
-    @NonNull
-    @Exported
-    public String getDescription() {
-        return description;
-    }
-
-    @NonNull
-    @Exported
-    public String getId() {
-        return id;
-    }
-
-    @Override
-    public final boolean equals(Object o) {
-        return IdCredentials.Helpers.equals(this, o);
-    }
-
-    @Override
-    public final int hashCode() {
-        return IdCredentials.Helpers.hashCode(this);
     }
 
     private static List<String> getLegacyCredentials() {
@@ -330,12 +302,20 @@ Logger.getLogger(TestingBotCredentials.class.getName()).log(Level.INFO, "existin
             String plainSecret = Secret.fromString(secret).getPlainText();
             try (TestingbotREST rest = new TestingbotREST(key.trim(), plainSecret)) {
                 TestingbotUser user = rest.getUserInfo();
-                if (user == null || Util.fixEmptyAndTrim(user.getEmail()) == null) {
+                if (user == null) {
                     return FormValidation.error("Could not verify these credentials with TestingBot.");
                 }
+                // A valid TestingBot account may not expose an email (e.g. sub-accounts); the
+                // authenticated user object itself is proof the key/secret work. Prefer the email,
+                // fall back to the account's first name, so verification never fails on a null email.
+                String who = Util.fixEmptyAndTrim(user.getEmail());
+                if (who == null) {
+                    who = Util.fixEmptyAndTrim(user.getFirstName());
+                }
                 String plan = Util.fixEmptyAndTrim(user.getPlan());
-                return FormValidation.ok("Connection successful — signed in as %s%s",
-                        user.getEmail(), plan != null ? " (" + plan + " plan)" : "");
+                return FormValidation.ok("Connection successful%s%s",
+                        who != null ? " — signed in as " + who : "",
+                        plan != null ? " (" + plan + " plan)" : "");
             } catch (TestingbotUnauthorizedException | TestingbotApiException e) {
                 // The REST client's typed failures: bad key/secret, and network/parse errors (it wraps
                 // IOException into TestingbotApiException). Unexpected runtime exceptions propagate.
