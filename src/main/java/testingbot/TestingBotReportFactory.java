@@ -24,7 +24,7 @@ public class TestingBotReportFactory extends Data {
         this.credentials = credentials;
     }
     
-    private static final Pattern SESSION_PATTERN = Pattern.compile("TestingBotSessionID=([A-Za-z0-9]+)");
+    private static final Pattern SESSION_PATTERN = Pattern.compile("TestingBotSessionID=([A-Za-z0-9_-]+)");
 
     public static List<String> findSessionIDs(CaseResult testResult) {
         List<String> sessions = new ArrayList<>();
